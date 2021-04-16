@@ -4,7 +4,7 @@
         {
             "label": "View PDF",
             "type": "shell",
-            "command": "sumatrapdf ${fileBasenameNoExtension}.pdf",
+            "command": "sumatrapdf ${relativeFileDirname}/${fileBasenameNoExtension}.pdf",
             "problemMatcher": [],
             "group": "test"
         },
@@ -21,7 +21,7 @@
                 "-t beamer",
                 "-V theme=metropolis",
                 "--slide-level=3",
-                "-o ${fileBasenameNoExtension}.pdf ${relativeFile}"
+                "-o ${relativeFileDirname}/${fileBasenameNoExtension}.pdf ${relativeFile}"
             ],
             "problemMatcher": [],
             "group": {
@@ -41,7 +41,7 @@
                 "--pdf-engine=xelatex",
                 "--wrap=preserve",
                 "--bibliography=${relativeFileDirname}/library.bib",
-                "-o ${fileBasenameNoExtension}.pdf ${relativeFile}"
+                "-o ${relativeFileDirname}/${fileBasenameNoExtension}.pdf ${relativeFile}"
             ],
             "problemMatcher": [],
             "group": "build"
