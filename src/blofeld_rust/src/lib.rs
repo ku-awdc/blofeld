@@ -38,3 +38,19 @@ mod advance_state {
         fn update(&mut self); 
     }
 }
+
+
+/// Disease Spread Models entails models that within-herd models, or between-herd
+/// models or overlapping/spill-over model. 
+trait SpreadModel { 
+
+    /// Entity representing the individual that are affected, e.g. a group
+    /// of animals. 
+    /// 
+    /// In the individual lies the characteristics that are tied to some
+    /// instrinsic disease state.
+    type Individual;
+    
+    /// Add a newly infected group of animals to the spread model.
+    fn add_newly_infected(&mut self, infected: [&Individual]);
+}

@@ -35,6 +35,12 @@ Other documents to read first:
 We decided to take a **top-down** design approach, thus we'll start by listing
 a general overview and then cut down further.
 
+There are some (three) sub-models congruently facilitating the scenario simulation.
+
+* There should be a fairly permissive interface for the actual models.
+* An interface between sub-models.
+* Interface for data-sources. These should be fairly permissive.
+
 ## Overview
 
 Coupling between R and *compiled language[^compiled_lang]*: There must be
@@ -80,4 +86,22 @@ is between faster insertion/deletion of new entities, or updating existing entit
 
 # Recording
 
+# Architectural idioms
 
+For now, the framework should not provide any default implementations of anything
+or templates that must be followed.
+
+1. Constraints -- traits and contracts
+2. Implementation of the framework
+3. Default implementations
+
+#
+
+<!-- Based on a meeting on 2021-04-16 -->
+
+There must be several (disease) spread models, several regulatory modules,
+and several populations. The composability of each should be considered in the
+modelling framework.
+
+This necessitates simulation *stages* that would necessitates and end of a stage
+where these module outcomes are compounded and affected.
