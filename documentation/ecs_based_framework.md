@@ -20,6 +20,10 @@ header-includes:
 
 <!-- markdownlint-disable-file MD025 -->
 
+# Checklist
+
+- [ ] Timestep synchronization between modules
+
 ## Background
 
 It is easier to constraint opinions, when it has to fit within the frames of
@@ -105,3 +109,43 @@ modelling framework.
 
 This necessitates simulation *stages* that would necessitates and end of a stage
 where these module outcomes are compounded and affected.
+
+# Parallel scenario run
+
+* Define a scenario repetitions/iterations $N$ and duration in timepoints $M$.
+
+This means that we parallelise over the repetitions $N$. E.g. we'd have a
+thread to generator random numbers, a thread for recording model outputs, and then
+arbitrary number of threads processing iterations.
+
+* Batch processing: Define a batch-size $B$, in which there are $B$ iterations
+  that are processed on each thread.
+
+  * Computationally more efficient as we saturate a threads more efficiently
+
+This leads us to the requirement that there should be a convergence-controller
+that should be in charge of dispatching these scenario runs.
+
+# Scenario dispatcher
+
+Mainly, the dispatcher should be able to
+
+<!-- FIXME: -->
+* Send signals to dispatched scenario-batches about changing values or ???
+
+# Storing model outputs
+
+Relay model outputs to a database saved on desk.
+Use current commit-id of the code to ear-tag the simulation with a model
+version.
+Use also [semantic versioning](https://semver.org/) of the model in the model run.
+
+Use also a type that contains all necessary information to run a scenario;
+This necessitates that there are zero hardcoded default values built into the
+the code itself, but those are retrievable from one common place, e.g. a
+`ScenarioConfiguration` type.
+
+# References
+
+::: {#refs}
+:::

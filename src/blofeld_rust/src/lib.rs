@@ -33,16 +33,19 @@ mod default_state {
 
 mod advance_state { 
 
-    /// Every simulation module must have a unified update/advance state method
     pub trait DynamicProcess {
-        fn update(&mut self); 
+        fn initial_state() -> Self;
+        fn update(&mut self);
+        fn wrap_up(&mut self);
+        /// Reset the state of this system such that it may be used in
+        fn reset_state(&mut self);
     }
 }
 
 
 /// Disease Spread Models entails models that within-herd models, or between-herd
 /// models or overlapping/spill-over model. 
-trait SpreadModel { 
+trait SpreadModel: advance_state::DynamicProcess { 
 
     /// Entity representing the individual that are affected, e.g. a group
     /// of animals. 
@@ -52,5 +55,8 @@ trait SpreadModel {
     type Individual;
     
     /// Add a newly infected group of animals to the spread model.
-    fn add_newly_infected(&mut self, infected: [&Individual]);
+    fn add_newly_infected(&mut self, infected: [&Self::Individual]);
 }
+
+mod parameters;
+mod des_system;
