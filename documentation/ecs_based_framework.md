@@ -145,6 +145,12 @@ This necessitates that there are zero hardcoded default values built into the
 the code itself, but those are retrievable from one common place, e.g. a
 `ScenarioConfiguration` type.
 
+# Regulartors
+
+- [ ] Describe the hooks necessary to facilitate the regulators that may be
+      used in the framework. Go through ASF and FMD regulators figure that out
+
+There are implicit-regulators, but by and large they are 
 # References
 
 ::: {#refs}

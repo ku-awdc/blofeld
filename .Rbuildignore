@@ -1,7 +1,6 @@
-^Blofeld\.Rproj$
+^.*\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
-
 documentation/
 notebooks/
 reports/
