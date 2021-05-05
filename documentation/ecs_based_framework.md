@@ -156,6 +156,13 @@ Two distinct populations.
 Should the systems/simulation modules dictate the composition of the population
 and thus the population info?
 
+# Regulators
+
+- [ ] Describe the hooks necessary to facilitate the regulators that may be
+      used in the framework. Go through ASF and FMD regulators figure that out
+
+There are implicit-regulators, but by and large they are 
+<!-- TODO -->
 # References
 
 ::: {#refs}

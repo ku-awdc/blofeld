@@ -4,3 +4,7 @@ inst/doc
 .Rhistory
 .DS_Store
 */.DS_Store
+
+/target
+.idea
+*.iml
