@@ -145,6 +145,17 @@ This necessitates that there are zero hardcoded default values built into the
 the code itself, but those are retrievable from one common place, e.g. a
 `ScenarioConfiguration` type.
 
+# ECS example project
+
+SIR model with a specific transmission rate $\lambda$ and recovery rate $\gamma$.
+
+Two distinct populations.
+
+# Building block
+
+Should the systems/simulation modules dictate the composition of the population
+and thus the population info?
+
 # References
 
 ::: {#refs}
