@@ -94,8 +94,8 @@ impl Probability {
 
 impl Rate {
     /// See [Probability::compound] for details.
-    pub fn compound<const N: usize>(rates: [Self; N]) -> Self {
-        let probabilities: [Probability; N] = rates.into();
+    // pub fn compound<const N: usize>(rates: [Self; N]) -> Self {
+    //     let probabilities: [Probability; N] = rates.into();
         
         // std::array::IntoIter::new(rates)
         //     .map_into::<Probability>()
