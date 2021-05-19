@@ -1,3 +1,44 @@
+## Build World
+
+# World contains only data and no methods
+
+# Data:
+# - Private static information:  initial states of farms including spatial coords, number of animals, etc
+
+# - Private dynamic information:
+#       - Internal states of farms, e.g. subgroups of animals within farms or potentially agent-specific information on individual animals or whatever - for simple applications this may be empty
+#       - Internal states of processes e.g. regulators, spread models, etc
+
+# - Public static information:
+#       - Number of populations and farms
+#       - DiseaseCompartments (fixed for all populations) and AnimalTypes (variable between populations)
+#       - Spatial information e.g. pairwise distance, direction, bordering, and overlap between farms (across all populations) - may be calculated on demand
+
+# - Public dynamic information
+#       - Farm data:  Numeric Array of Farms x AnimalTypes x DiseaseCompartments
+#              NB:  AnimalTypes may differ between Populations, so this must be the superset - is this inefficient?  Otherwise we could have a list of Arrays with different second dimension...
+#       - Regulator data:  data frame including regulator classification for each farm, which is basically an enum for each column but where enums will differ between regulators.  May also include other static farm-level information e.g. population type and herd size if we include regulators that maintain this information as "standard"?
+#       - State data:  Bool Matrix of Farms x States derived from the Authority
+#             NB:  states are not mutually exclusive, e.g. a farm may be simultaneously infected and within 5km of another infected farm
+#       - Infection pressure:  Numeric Matrix of Farms x IndirectSpread outputs
+
+
+## OK I lied:  World has methods to Initialise and Reset
+# Initialise:  Create the static information based on input population factories or whatever
+# Reset:  (Re)-create the dynamic information from the internally stored static information
+
+
+## Build Scenario
+
+# Scenario contains mostly methods, but processes can contain basic static data e.g. parameters
+
+
+
+
+
+
+###### OLDER STUFF BELOW HERE
+
 ## Masks:
 
 # Real or Int
