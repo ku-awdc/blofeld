@@ -31,6 +31,12 @@ World <- R6Class("World", public = list(
   )
 )
 
+#' Provide the
+World$set("public", "empty_world", function() {
+
+  invisible(self)
+})
+
 Simulation$set("public", "initialize", function(authority, populations, regulators, movements, indirect, logger){
 
   # Must have exactly 1:
