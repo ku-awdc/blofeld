@@ -1,6 +1,8 @@
 ## Testing
 
 library("Blofeld")
+library("tidyverse")
+library("igraph")
 
 bp <- BasicPop$new(50); bp
 bp$set_extbeta(c(0.1, rep(0,49)))
@@ -14,3 +16,5 @@ bs$update()
 bp$update(100)
 
 t(bp$compartments[1,,])
+
+br <- BasicRegulator$new(bp)

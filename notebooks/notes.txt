@@ -1,0 +1,34 @@
+World is for data
+Scenario is for actions
+
+World:  Populations, Spatial, Messages/Actions
+Scenario:  Authority, Regulators, Movements, Indirect, Logger
+		Method to pass in World
+
+
+World has a single Authority
+World has one or more Population
+World has one or more Regulator each assigned to one or more Populations
+
+Simulation has one or more Movement each assigned to one or more Population with consistent animal types
+Simulation has one or more IndirectSpread each assigned to one or more Population
+
+Authority defines FarmStatus enum which is respected by Regulator, Movement, and IndirectSpread
+Population defines Disease enum and AnimalType enum which are respected by Regulator, Movement, and IndirectSpread
+Regulator defines Observation enum which is respected by Authority
+
+Each Disease enum must be translatable to:  Uninfected, Exposed, Infectious, Recovered, Removed
+
+Population outputs UEIRR numbers, along with Disease statuses, along with Infeted Y/N and Infectious Y/N
+
+Authority outputs FarmStatus numbers, along with LastStatus and DeltaStatus
+Authority also outputs overall outbreak status bool indicating if an outbreak is known to be active
+
+Simulation has time step, and each spread/regulator/authority has a time increment option (default daily)
+Simulation also outputs overall disease status bool indicating if there is any active infection left
+
+We also need a Spatial class inside simulation to handle:
+	Pairwise distance
+	Pairwise neighbour
+	Pairwise overlap
+
