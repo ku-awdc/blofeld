@@ -6,6 +6,7 @@ Scenario:  Authority, Regulators, Movements, Indirect, Logger
 		Method to pass in World
 
 
+
 World has a single Authority
 World has one or more Population
 World has one or more Regulator each assigned to one or more Populations
