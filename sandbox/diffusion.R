@@ -8,20 +8,23 @@ Diffusion <- R6Class("Diffusion",
 
 	public = list(
 
-		setup = function(neighbours) {
+		setup = function(graph, beta) {
 
-		  # Create a dense matrix of border lengths in a very inefficient way:
-		  N <- max(neighbours$Index)
-		  mb <- max(neighbours$Border)
-		  private$matrix <- matrix(0.0, nrow=N, ncol=N)
-		  for(i in 1:nrow(neighbours)) private$matrix[neighbours$Index[i], neighbours$Neighbour[i]] <- neighbours$Border[i] / mb
+		  # Get distance as a dense matrix from igraph:
+		  private$beta <- beta
+		  private$graph <- graph
+		  dist <- distances(graph)
+		  #dist[dist>10L] <- Inf
+		  private$matrix <- 1.0 / (2^dist)
+		  private$matrix <- private$matrix * (1 - diag(nrow(private$matrix)))
+		  stopifnot(all(private$matrix >= 0.0), all(private$matrix <= 1.0))
 
 		},
 
 		update = function(statuses, control_matrix) {
 
-		  infpres <- statuses[,3L] * private$matrix
-		  return(1-apply(1-infpres,2,prod))
+		  infpres <- (1 - private$matrix * private$beta)^statuses[,3L]
+		  return(1-apply(infpres,2,prod))
 
 		}
 
@@ -29,7 +32,9 @@ Diffusion <- R6Class("Diffusion",
 
 	private = list(
 
-	  matrix = matrix()
+	  matrix = matrix(),
+	  graph = NULL,
+	  beta = 0.1
 
 	),
 
