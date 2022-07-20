@@ -6,32 +6,37 @@ library('R6')
 Time <- R6Class("Time",
 
 	public = list(
-	
+
 		initialize = function(start_time) {
-			
-			private$time <- start_time
-			
+
+		  private$start_time <- start_time
+		  private$internal_time <- start_time
+
 		},
-		
+
 		update = function(time_steps) {
-			
+
+		  private$internal_time <- private$internal_time + 1L
+
 		}
-	
+
 	),
-	
+
 	private = list(
-	
-		time = 0L
-		
+
+	  start_time = 0L,
+		internal_time = 0L
+
 	),
-	
+
 	active = list(
-	
-		get_time = function() self$time
-		
+
+		time = function() private$internal_time,
+		day = function() as.numeric(private$internal_time - private$start_time, units="days")
+
 	),
-	
+
 	lock_class = TRUE,
-	cloneable = FALSE	
+	cloneable = FALSE
 
 )
