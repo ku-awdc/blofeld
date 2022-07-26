@@ -35,6 +35,11 @@ wbpop$setup(patches)
 source("locations.R")
 locations <- Locations$new(time, list(wbpop))
 
+# Spread module for migration:
+source("migration.R")
+migration <- Migration$new(time, locations, list(wbpop), type="within")
+migration$setup(graph, 0.2, 0.1, 30, 50)
+
 # Then create one or more spread modules:
 source("diffusion.R")
 diffusion <- Diffusion$new(time, locations, list(wbpop), type="within")
