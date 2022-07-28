@@ -29,7 +29,7 @@ time <- Time$new(dt)
 # Then create one or more population:
 source("wild_boar.R")
 wbpop <- WildBoar$new(time, nrow(patches))
-wbpop$setup(patches)
+wbpop$setup(patches, gamma=0.01)
 
 # Then create a single locations objct:
 source("locations.R")
@@ -38,28 +38,28 @@ locations <- Locations$new(time, list(wbpop))
 # Spread module for migration:
 source("migration.R")
 migration <- Migration$new(time, locations, list(wbpop), type="within")
-migration$setup(graph, 0.2, 0.1, 30, 50)
+migration$setup(graph, 0.1, 0.05, 30, 50)
 
 # Spread module for ASF:
 source("diffusion.R")
 diffusion <- Diffusion$new(time, locations, list(wbpop), type="within")
-diffusion$setup(graph, 0.5, 0.01)
+diffusion$setup(graph, 0.01, 0.01)
 
 mkplt <- function(wbpop, year){
   patches$popsize <- wbpop$status_pop[,"Infectious"]
-  patches$infected <- wbpop$status_asf[,"Infectious"]
-  pt1 <- ggplot(patches, aes(geometry=geometry, fill=popsize)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - population")) + theme(legend.pos="bottom")
-  pt2 <- ggplot(patches, aes(geometry=geometry, fill=infected)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - ASF")) + theme(legend.pos="bottom")
+  patches$infected <- case_when(patches$popsize == 0L ~ NA_real_, TRUE ~ wbpop$status_asf[,"Infectious"] / patches$popsize)
+  pt1 <- ggplot(patches, aes(geometry=geometry, fill=popsize)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - population")) + theme(legend.pos="bottom") + scale_fill_gradient(limits=c(0,24))
+  pt2 <- ggplot(patches, aes(geometry=geometry, fill=infected)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - ASF")) + theme(legend.pos="bottom") + scale_fill_gradient(limits=c(0,1), high="#CB4C4E")
   print(ggpubr::ggarrange(pt1, pt2))
 }
 
 ## Run:
 wbpop$seed_boar(756)
-
+yrs <- 10
 
 pdf("output.pdf")
 mkplt(wbpop, 0)
-for(i in 1:20){
+for(i in 1:yrs){
   if(i == 5){
     wbpop$seed_asf(756)
   }

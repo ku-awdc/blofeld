@@ -42,8 +42,8 @@ WildBoar <- R6Class("WildBoar",
 
 		  stopifnot(all(private$totals[unit] > 0L))
 
-		  private$compartments[unit,2L] <- private$compartments[unit,2L] + 1L
-		  private$compartments[unit,1L] <- private$compartments[unit,1L] - 1L
+		  private$compartments[unit,2L] <- private$compartments[unit,2L] + 3L
+		  private$compartments[unit,1L] <- private$compartments[unit,1L] - 3L
 		  stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
 		  private$newinf[unit] <- private$newinf[unit] + 1L

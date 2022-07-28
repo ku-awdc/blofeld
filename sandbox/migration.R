@@ -22,10 +22,10 @@ Migration <- R6Class("Migration",
 		  # Get distance as a dense matrix from igraph:
 		  dist <- distances(graph)
 		  # Our beta vector representing (1) within-patch migration (zero), (2-11) between-patch migration, (12) long-distance migration (zero)
-		  (betas <- c(0.0, beta_migrate/(2^(0:9)), 0.0))
-		  stopifnot(length(betas)==12L)
+		  (mbetas <- c(0.0, -beta_migrate/(2^(0:9)), 0.0))
+		  stopifnot(length(mbetas)==12L)
 		  # Populate migrate so it is a matrix of -betas based on distance:
-		  private$migrate <- matrix(-betas[case_when(as.numeric(dist) > 10 ~ 12.0, TRUE ~ as.numeric(dist) + 1.0)], ncol=ncol(dist), nrow=nrow(dist))
+		  private$migrate <- matrix(mbetas[case_when(as.numeric(dist) > 10 ~ 12.0, TRUE ~ as.numeric(dist) + 1.0)], ncol=ncol(dist), nrow=nrow(dist))
 		  stopifnot(nrow(private$migrate)==ncol(private$migrate))
 
 		},

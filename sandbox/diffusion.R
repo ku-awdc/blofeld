@@ -17,10 +17,10 @@ Diffusion <- R6Class("Diffusion",
 		  # Get distance as a dense matrix from igraph:
 		  dist <- distances(graph)
 		  # Our beta vector representing (1) within-patch density-dependent spread (zero), (2-11) between-patch frequency-dependent spread, (12) long-distance spread (zero)
-		  (betas <- c(0.0, beta_dens/(4^(0:4)), 0.0))
-		  stopifnot(length(betas)==7L)
+		  (mbetas <- c(0.0, -beta_dens/(4^(0:4)), 0.0))
+		  stopifnot(length(mbetas)==7L)
 		  # Populate migrate so it is a matrix of -betas based on distance:
-		  private$beta_dens <- matrix(-betas[case_when(as.numeric(dist) > 5 ~ 7.0, TRUE ~ as.numeric(dist) + 1.0)], ncol=ncol(dist), nrow=nrow(dist))
+		  private$beta_dens <- matrix(mbetas[case_when(as.numeric(dist) > 5 ~ 7.0, TRUE ~ as.numeric(dist) + 1.0)], ncol=ncol(dist), nrow=nrow(dist))
 		  stopifnot(nrow(private$migrate)==ncol(private$migrate))
 
 
