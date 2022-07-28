@@ -35,26 +35,26 @@ Migration <- R6Class("Migration",
 		  # Check the day of year to see if anything happens:
 		  doy <- private$time$day_of_year
 		  if(!doy %in% private$doy_breed && !doy %in% private$doy_migrate) {
-		    return( numeric(length(statuses)) )
+		    return( numeric(nrow(statuses)) )
 		  }
 
 		  # Otherwise we do one or the other:
-		  rv <- numeric(length(statuses))
+		  rv <- numeric(nrow(statuses))
 
 		  # Breeding is density-dependent within patch:
-		  if(!doy %in% private$doy_breed) {
+		  if(doy %in% private$doy_breed) {
 		    # NB: "infectious" here means alive!
 		    # TODO: account for sex ratio in adults?
 		    rv <- rv + (private$breed * statuses[,3L])
 		  }
 
 		  # Migration is density-dependent but we subtract the cc first:
-		  if(!doy %in% private$doy_migrate) {
+		  if(doy %in% private$doy_migrate) {
 		    # NB: "infectious" here means alive, and "total" means carrying capacity!
 		    # TODO: parameter for breeding capacity ratio from cc
 		    ratio <- 3
-		    breed_capacity <- round(statuses[,2L] / ratio)
-		    excess <- pmax(0, breed_capacity - statuses[,3L])
+		    breed_capacity <- statuses[,2L] / ratio
+		    excess <- pmax(0, statuses[,3L] - breed_capacity)
 		    rv <- rv + colSums(private$migrate * excess)
 		  }
 

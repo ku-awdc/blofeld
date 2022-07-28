@@ -40,10 +40,79 @@ source("migration.R")
 migration <- Migration$new(time, locations, list(wbpop), type="within")
 migration$setup(graph, 0.2, 0.1, 30, 50)
 
-# Then create one or more spread modules:
+# Spread module for ASF:
 source("diffusion.R")
 diffusion <- Diffusion$new(time, locations, list(wbpop), type="within")
-diffusion$setup(graph, 0.5)
+diffusion$setup(graph, 0.5, 0.01)
+
+mkplt <- function(wbpop, year){
+  patches$popsize <- wbpop$status_pop[,"Infectious"]
+  patches$infected <- wbpop$status_asf[,"Infectious"]
+  pt1 <- ggplot(patches, aes(geometry=geometry, fill=popsize)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - population")) + theme(legend.pos="bottom")
+  pt2 <- ggplot(patches, aes(geometry=geometry, fill=infected)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - ASF")) + theme(legend.pos="bottom")
+  print(ggpubr::ggarrange(pt1, pt2))
+}
+
+## Run:
+wbpop$seed_boar(756)
+
+
+pdf("output.pdf")
+mkplt(wbpop, 0)
+for(i in 1:20){
+  if(i == 5){
+    wbpop$seed_asf(756)
+  }
+  pbapply::pbsapply(1:365, function(x){
+    if(i < 5){
+      beta <- numeric(nrow(patches))
+    }else{
+      beta <- diffusion$update(wbpop$status_asf)
+    }
+    gamma <- migration$update(wbpop$status_pop)
+    stopifnot(all(beta <= 0.0))
+    stopifnot(all(gamma <= 0.0))
+    #if(sum(beta+gamma) != 0) browser()
+    wbpop$update(beta, gamma, NULL, 1)
+    time$update()
+  })
+  mkplt(wbpop, i)
+  print(i)
+}
+dev.off()
+
+
+pdf("output.pdf")
+wbpop$seed_asf(756)
+mkplt(wbpop, 0)
+time$.__enclos_env__$private$internal_doy <- 0
+for(i in 1:60){
+  beta <- diffusion$update(wbpop$status_asf)
+  gamma <- migration$update(wbpop$status_pop)
+  stopifnot(all(beta <= 0.0))
+  stopifnot(all(gamma <= 0.0))
+  #if(sum(beta+gamma) != 0) browser()
+  wbpop$update(beta, gamma, NULL, 1)
+  time$update()
+  mkplt(wbpop, time$day_of_year)
+  print(i)
+}
+dev.off()
+
+
+
+
+sum(wbpop$status_asf[,"Total"])
+sum(wbpop$status_pop[,"Infectious"])
+beta <- numeric(nrow(patches))
+sum(beta)
+gamma <- migration$update(wbpop$status_pop)
+sum(gamma)
+wbpop$update(beta, gamma, NULL, 1)
+time$update()
+time$day_of_year
+
+
 
 
 wbpop$seed_infection(which(patches$carrying_capacity > 10)[1])

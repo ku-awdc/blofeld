@@ -1,0 +1,3 @@
+Two types of spread:
+  - rate-based, which outputs -beta - can have multiple of these
+  - stochastic, which outputs positive integers (# of infection events)

@@ -18,7 +18,7 @@ WildBoar <- R6Class("WildBoar",
 	    private$totals <- round(patches$carrying_capacity)
 
 	    private$compartments <- matrix(0L, nrow=private$N, ncol=3)
-	    private$compartments[,1L] <- private$totals
+	    private$compartments[,3L] <- private$totals
 
 	    private$beta <- beta
 	    private$gamma <- gamma
@@ -28,7 +28,17 @@ WildBoar <- R6Class("WildBoar",
 
 	  },
 
-		seed_infection = function(unit) {
+	  seed_boar = function(unit) {
+
+	    stopifnot(all(private$totals[unit] > 0L))
+
+	    private$compartments[unit,1L] <- private$compartments[unit,1L] + private$compartments[unit,3L]
+	    private$compartments[unit,3L] <- 0L
+	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
+
+	  },
+
+		seed_asf = function(unit) {
 
 		  stopifnot(all(private$totals[unit] > 0L))
 
@@ -40,20 +50,21 @@ WildBoar <- R6Class("WildBoar",
 
 		},
 
-		update = function(infection_pressure, control_matrix, time_steps = 1L) {
+		update = function(infection_pressure, migration_pressure, control_matrix, time_steps = 1L) {
 
 		  self$reset_changed()
 		  private$newinf <- numeric(private$N)
+		  private$newbirth <- numeric(private$N)
 
-		  # We deliberately ignore control_matrix as there is no control
 		  stopifnot(time_steps==1L)
 		  stopifnot(length(infection_pressure)==nrow(private$patches))
-		  stopifnot(all(infection_pressure >= 0.0), all(infection_pressure <= 1.0))
+		  stopifnot(length(migration_pressure)==nrow(private$patches))
+		  # We deliberately ignore control_matrix as there is no control
 
-		  # Total infection pressure
-		  infprob <- 1 - ((1-private$beta)^private$compartments[,2] * (1-infection_pressure))
+		  infprob <- 1 - exp(infection_pressure)
+		  recprob <- 1 - exp(migration_pressure)
 
-		  rec_to_sus <- rbinom(private$N, private$compartments[,3L], private$delta)
+		  rec_to_sus <- rbinom(private$N, private$compartments[,3L], recprob)
 		  inf_to_rec <- rbinom(private$N, private$compartments[,2L], private$gamma)
 		  sus_to_inf <- rbinom(private$N, private$compartments[,1L], infprob)
 
@@ -65,6 +76,7 @@ WildBoar <- R6Class("WildBoar",
 
 		  private$change_status <- private$change_status | any(sus_to_inf)>0L | any(inf_to_rec)>0L
 		  private$newinf <- private$newinf + sus_to_inf
+		  private$newbirth <- private$newbirth + rec_to_sus
 
 		}
 
@@ -75,6 +87,7 @@ WildBoar <- R6Class("WildBoar",
 	  compartments = matrix(),
 	  totals = numeric(),
 	  newinf = 0L,
+	  newbirth = 0L,
 
 	  beta = 0.1,
 	  gamma = 0.1,
@@ -84,19 +97,32 @@ WildBoar <- R6Class("WildBoar",
 
 	active = list(
 
-		status = function() {
-		  # c("Unit","Total","Infectious","Environment","Infected","NewInf","NewDead","NewVacc")
-			rv <- matrix(0.0, nrow=private$N, ncol=8, dimnames=list(NULL, private$status_dimnames))
-			rv[,1] <- 1L:private$N
-			rv[,2] <- private$totals - private$compartments[,3L]
-			rv[,3] <- private$compartments[,2L]
-			rv[,5] <- private$compartments[,2L]
-			rv[,6] <- private$newinf
+	  status_asf = function() {
+	    # browser()
+	    # c("Unit","Total","Infectious","Environment","Infected","NewInf","NewDead","NewVacc")
+	    rv <- matrix(0.0, nrow=private$N, ncol=8, dimnames=list(NULL, private$status_dimnames))
+	    rv[,1] <- 1L:private$N
+	    rv[,2] <- private$totals - private$compartments[,3L]
+	    rv[,3] <- private$compartments[,2L]
+	    rv[,5] <- private$compartments[,2L]
+	    rv[,6] <- private$newinf
 
-			return(rv)
-		},
+	    return(rv)
+	  },
 
-		spatial_centroid = function() {
+	  status_pop = function() {
+	    # c("Unit","Total","Infectious","Environment","Infected","NewInf","NewDead","NewVacc")
+	    rv <- matrix(0.0, nrow=private$N, ncol=8, dimnames=list(NULL, private$status_dimnames))
+	    rv[,1] <- 1L:private$N
+	    rv[,2] <- private$totals
+	    rv[,3] <- private$compartments[,1L]
+	    rv[,5] <- private$compartments[,1L]
+	    rv[,6] <- private$newbirth
+
+	    return(rv)
+	  },
+
+	  spatial_centroid = function() {
 			stop("The spatial_centroid active method must be overridden")
 		},
 
