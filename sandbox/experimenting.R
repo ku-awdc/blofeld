@@ -102,6 +102,7 @@ dev.off()
 
 stop()
 
+
 sum(wbpop$status_asf[,"Total"])
 sum(wbpop$status_pop[,"Infectious"])
 beta <- numeric(nrow(patches))
