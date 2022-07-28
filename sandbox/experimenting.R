@@ -43,19 +43,19 @@ migration$setup(graph, 0.1, 0.05, 30, 50)
 # Spread module for ASF:
 source("diffusion.R")
 diffusion <- Diffusion$new(time, locations, list(wbpop), type="within")
-diffusion$setup(graph, 0.01, 0.01)
+diffusion$setup(graph, 0.001, 0.01)
 
 mkplt <- function(wbpop, year){
   patches$popsize <- wbpop$status_pop[,"Infectious"]
-  patches$infected <- case_when(patches$popsize == 0L ~ NA_real_, TRUE ~ wbpop$status_asf[,"Infectious"] / patches$popsize)
-  pt1 <- ggplot(patches, aes(geometry=geometry, fill=popsize)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - population")) + theme(legend.pos="bottom") + scale_fill_gradient(limits=c(0,24))
+  patches$infected <- case_when(patches$popsize == 0L ~ NA_real_, TRUE ~ pmin(1L, wbpop$status_asf[,"Infectious"]))
+  pt1 <- ggplot(patches, aes(geometry=geometry, fill=popsize+1)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - population")) + theme(legend.pos="bottom") + scale_fill_gradient(limits=c(1,25), trans="log10")
   pt2 <- ggplot(patches, aes(geometry=geometry, fill=infected)) + geom_sf() + theme_void() + ggtitle(str_c("Year ", year, " - ASF")) + theme(legend.pos="bottom") + scale_fill_gradient(limits=c(0,1), high="#CB4C4E")
   print(ggpubr::ggarrange(pt1, pt2))
 }
 
 ## Run:
 wbpop$seed_boar(756)
-yrs <- 10
+yrs <- 4
 
 pdf("output.pdf")
 mkplt(wbpop, 0)
@@ -86,7 +86,7 @@ pdf("output.pdf")
 wbpop$seed_asf(756)
 mkplt(wbpop, 0)
 time$.__enclos_env__$private$internal_doy <- 0
-for(i in 1:60){
+for(i in 1:20){
   beta <- diffusion$update(wbpop$status_asf)
   gamma <- migration$update(wbpop$status_pop)
   stopifnot(all(beta <= 0.0))
@@ -100,7 +100,7 @@ for(i in 1:60){
 dev.off()
 
 
-
+stop()
 
 sum(wbpop$status_asf[,"Total"])
 sum(wbpop$status_pop[,"Infectious"])
