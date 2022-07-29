@@ -40,12 +40,14 @@ Diffusion <- R6Class("Diffusion",
 		  )
 
 		  # Carcass spread is within-patch and neighbouring patches and density-dependent:
-		  carcasses <- statuses[,4L]
+      carcasses <- statuses[, 4L]
 		  stopifnot(all(carcasses >= 0L))
-		  rv <- rv + colSums(private$beta_carc * carcasses)
+      # rv <- rv + colSums(private$beta_carc * carcasses)
+      rv <- rv + crossprod(private$beta_carc, carcasses)[, 1]
 
 		  # Between-patch spread is density-dependent (alive infected):
-		  rv <- rv + colSums(private$beta_dens * statuses[,3L])
+      # rv <- rv + colSums(private$beta_dens * statuses[, 3L])
+      rv <- rv + crossprod(private$beta_dens, statuses[, 3L])[, 1]
 
 		  return(rv)
 		}

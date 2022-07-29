@@ -53,9 +53,11 @@ Migration <- R6Class("Migration",
 		    # NB: "infectious" here means alive, and "total" means carrying capacity!
 		    # TODO: parameter for breeding capacity ratio from cc
 		    ratio <- 3
-		    breed_capacity <- statuses[,2L] / ratio
-		    excess <- pmax(0, statuses[,3L] - breed_capacity)
-		    rv <- rv + colSums(private$migrate * excess)
+                breed_capacity <- statuses[, 2L] / ratio
+                excess <- pmax(0, statuses[, 3L] - breed_capacity)
+				#' excess %*% private$migrate
+                # rv <- rv + colSums(private$migrate * excess)
+                rv <- rv + crossprod(private$migrate, excess)[,1]
 		  }
 
 		  return(rv)
