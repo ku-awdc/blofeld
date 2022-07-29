@@ -10,19 +10,19 @@ WildBoar <- R6Class("WildBoar",
 
 	public = list(
 
-	  setup = function(patches, beta = 0.1, gamma = 0.25, delta = 0.0) {
+	  setup = function(patches, gamma = 0.25, carc_prob = 0.01, carc_gamma = 1e-3) {
 
 	    stopifnot(nrow(patches)==private$N)
 	    stopifnot(!is.null(patches$carrying_capacity))
 
 	    private$totals <- round(patches$carrying_capacity)
 
-	    private$compartments <- matrix(0L, nrow=private$N, ncol=3)
-	    private$compartments[,3L] <- private$totals
+	    private$compartments <- matrix(0L, nrow=private$N, ncol=4)
+	    private$compartments[,4L] <- private$totals
 
-	    private$beta <- beta
 	    private$gamma <- gamma
-	    private$delta <- delta
+	    private$carc_prob <- carc_prob
+	    private$carc_gamma <- carc_gamma
 
 	    private$newinf <- numeric(private$N)
 
@@ -30,23 +30,30 @@ WildBoar <- R6Class("WildBoar",
 
 	  seed_boar = function(unit) {
 
-	    stopifnot(all(private$totals[unit] > 0L))
-
-	    private$compartments[unit,1L] <- private$compartments[unit,1L] + private$compartments[unit,3L]
-	    private$compartments[unit,3L] <- 0L
+	    private$compartments[unit,1L] <- private$totals
+	    private$compartments[unit,2L:4L] <- 0L
 	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
 	  },
 
-		seed_asf = function(unit) {
+	  remove_boar = function(unit) {
 
-		  stopifnot(all(private$totals[unit] > 0L))
+	    private$compartments[unit,1L:3L] <- 0L
+	    private$compartments[unit,3L] <- private$totals
+	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
-		  private$compartments[unit,2L] <- private$compartments[unit,2L] + 3L
-		  private$compartments[unit,1L] <- private$compartments[unit,1L] - 3L
+	  },
+
+		seed_asf = function(unit, number) {
+
+		  stopifnot(all(private$totals[unit] >= number))
+
+		  private$compartments[unit,1L:4L] <- 0L
+		  private$compartments[unit,2L] <- number
+		  private$compartments[unit,1L] <- private$totals[unit] - number
 		  stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
-		  private$newinf[unit] <- private$newinf[unit] + 1L
+		  private$newinf[unit] <- private$newinf[unit] + number
 
 		},
 
@@ -55,6 +62,7 @@ WildBoar <- R6Class("WildBoar",
 		  self$reset_changed()
 		  private$newinf <- numeric(private$N)
 		  private$newbirth <- numeric(private$N)
+		  private$newdeath <- numeric(private$N)
 
 		  stopifnot(time_steps==1L)
 		  stopifnot(length(infection_pressure)==nrow(private$patches))
@@ -64,19 +72,24 @@ WildBoar <- R6Class("WildBoar",
 		  infprob <- 1 - exp(infection_pressure)
 		  recprob <- 1 - exp(migration_pressure)
 
-		  rec_to_sus <- rbinom(private$N, private$compartments[,3L], recprob)
-		  inf_to_rec <- rbinom(private$N, private$compartments[,2L], private$gamma)
 		  sus_to_inf <- rbinom(private$N, private$compartments[,1L], infprob)
+		  inf_to_nxt <- rbinom(private$N, private$compartments[,2L], private$gamma)
+		  inf_to_ccs <- rbinom(private$N, inf_to_nxt, private$carc_prob)
+		  inf_to_rec <- inf_to_nxt - inf_to_ccs
+		  ccs_to_rec <- rbinom(private$N, private$compartments[,3L], private$carc_gamma)
+		  rec_to_sus <- rbinom(private$N, private$compartments[,4L], recprob)
 
 		  private$compartments[,1L] <- private$compartments[,1L] + rec_to_sus - sus_to_inf
-		  private$compartments[,2L] <- private$compartments[,2L] + sus_to_inf - inf_to_rec
-		  private$compartments[,3L] <- private$compartments[,3L] + inf_to_rec - rec_to_sus
+		  private$compartments[,2L] <- private$compartments[,2L] + sus_to_inf - inf_to_nxt
+		  private$compartments[,3L] <- private$compartments[,3L] + inf_to_ccs - ccs_to_rec
+		  private$compartments[,4L] <- private$compartments[,4L] + inf_to_rec + ccs_to_rec - rec_to_sus
 
+		  if(!all(private$totals == apply(private$compartments,1,sum))) browser()
 		  stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
-		  private$change_status <- private$change_status | any(sus_to_inf)>0L | any(inf_to_rec)>0L
 		  private$newinf <- private$newinf + sus_to_inf
 		  private$newbirth <- private$newbirth + rec_to_sus
+		  private$newdeath <- private$newdeath + inf_to_nxt
 
 		}
 
@@ -88,10 +101,11 @@ WildBoar <- R6Class("WildBoar",
 	  totals = numeric(),
 	  newinf = 0L,
 	  newbirth = 0L,
+	  newdeath = 0L,
 
-	  beta = 0.1,
-	  gamma = 0.1,
-	  delta = 0.05
+	  gamma = numeric(),
+	  carc_prob = numeric(),
+	  carc_gamma = numeric()
 
 	),
 
@@ -102,9 +116,10 @@ WildBoar <- R6Class("WildBoar",
 	    # c("Unit","Total","Infectious","Environment","Infected","NewInf","NewDead","NewVacc")
 	    rv <- matrix(0.0, nrow=private$N, ncol=8, dimnames=list(NULL, private$status_dimnames))
 	    rv[,1] <- 1L:private$N
-	    rv[,2] <- private$totals - private$compartments[,3L]
-	    rv[,3] <- private$compartments[,2L]
-	    rv[,5] <- private$compartments[,2L]
+	    rv[,2] <- private$totals - private$compartments[,3L] - private$compartments[,4L]  # Don't count dead animals or carcasses
+	    rv[,3] <- private$compartments[,2L]  # Only infected alive
+	    rv[,4] <- private$compartments[,3L]  # Infected carcasses
+	    rv[,5] <- private$compartments[,2L]  # Only infected alive
 	    rv[,6] <- private$newinf
 
 	    return(rv)
@@ -115,8 +130,8 @@ WildBoar <- R6Class("WildBoar",
 	    rv <- matrix(0.0, nrow=private$N, ncol=8, dimnames=list(NULL, private$status_dimnames))
 	    rv[,1] <- 1L:private$N
 	    rv[,2] <- private$totals
-	    rv[,3] <- private$compartments[,1L]
-	    rv[,5] <- private$compartments[,1L]
+	    rv[,3] <- private$compartments[,1L] + private$compartments[,2L]  # Assume infected animals can breed
+	    rv[,5] <- private$compartments[,1L] + private$compartments[,2L]  # Assume infected animals can breed
 	    rv[,6] <- private$newbirth
 
 	    return(rv)

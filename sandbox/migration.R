@@ -10,7 +10,7 @@ Migration <- R6Class("Migration",
 
 	public = list(
 
-		setup = function(graph, beta_breed, beta_migrate, doy_breed, doy_migrate) {
+		setup = function(graph, beta_breed=0.1, beta_migrate=0.05, doy_breed=30L, doy_migrate=50L) {
 
 		  private$doy_breed <- doy_breed
 		  private$doy_migrate <- doy_migrate
