@@ -30,7 +30,7 @@ WildBoar <- R6Class("WildBoar",
 
 	  seed_boar = function(unit) {
 
-	    private$compartments[unit,1L] <- private$totals
+	    private$compartments[unit,1L] <- private$totals[unit]
 	    private$compartments[unit,2L:4L] <- 0L
 	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
@@ -39,7 +39,7 @@ WildBoar <- R6Class("WildBoar",
 	  remove_boar = function(unit) {
 
 	    private$compartments[unit,1L:3L] <- 0L
-	    private$compartments[unit,3L] <- private$totals
+	    private$compartments[unit,4L] <- private$totals[unit]
 	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
 	  },
