@@ -16,7 +16,16 @@ source("spillover.R")
 
 
 ## Code is now slightly tidied up into a function
-multi_patch_fun <- function(iteration, patches, neighbours, use_migration=TRUE, seed_patch=1L, years=5L, plot=FALSE, progbar=FALSE) {
+multi_patch_fun <-
+  function(iteration,
+           patches,
+           neighbours,
+           use_migration = TRUE,
+           seed_patch = 1L,
+           years = 5L,
+           plot = FALSE,
+           progbar = FALSE,
+           plot_name = "output") {
 
   ## Switch for migration vs uniform repopulation:
   USE_MIGRATION <- use_migration
@@ -87,22 +96,23 @@ multi_patch_fun <- function(iteration, patches, neighbours, use_migration=TRUE, 
       ggtitle(str_c("Year ", year, " - ASF")) +
       theme(legend.pos = "bottom") +
       scale_fill_manual(values = c(Extinct = "Grey", No = "Green", Yes = "Red"))
-    pt3 <- ggplot(patches, aes(geometry = geometry, fill = carcass)) +
-      geom_sf() +
-      theme_void() +
-      ggtitle(str_c("Year ", year, " - Carcass")) +
-      theme(legend.pos = "bottom") +
-      scale_fill_manual(values = c(No = "Grey", Yes = "chocolate3"))
-    pt4 <- ggplot(patches, aes(geometry = geometry, fill = spillover)) +
-      geom_sf() +
-      theme_void() +
-      ggtitle(str_c("Year ", year, " - Spillover")) +
-      theme(legend.pos = "bottom")
-    print(ggpubr::ggarrange(pt1, pt2, pt4, pt3, nrow = 2L, ncol = 2L))
+    # pt3 <- ggplot(patches, aes(geometry = geometry, fill = carcass)) +
+    #   geom_sf() +
+    #   theme_void() +
+    #   ggtitle(str_c("Year ", year, " - Carcass")) +
+    #   theme(legend.pos = "bottom") +
+    #   scale_fill_manual(values = c(No = "Grey", Yes = "chocolate3"))
+    # pt4 <- ggplot(patches, aes(geometry = geometry, fill = spillover)) +
+    #   geom_sf() +
+    #   theme_void() +
+    #   ggtitle(str_c("Year ", year, " - Spillover")) +
+    #   theme(legend.pos = "bottom")
+    # print(ggpubr::ggarrange(pt1, pt2, pt4, pt3, nrow = 2L, ncol = 2L))
+    print(ggpubr::ggarrange(pt1, pt2, nrow = 1, ncol = 2))
   }
 
   if(plot) {
-    pdf("output.pdf")
+    pdf(str_c(plot_name, ".pdf"), paper = "a4r")
     mkplt(wbpop, dpop, 0)
   }
 
@@ -150,21 +160,21 @@ multi_patch_fun <- function(iteration, patches, neighbours, use_migration=TRUE, 
 
   output <- output |> mutate(Date = as.Date(Year * 365 + Day, origin = as.Date("2000-01-01")))
 
-  if(plot){
-    pltdt <- output |>
-      pivot_longer(Susceptible:Dead, names_to = "Compartment", values_to = "N")
-
-    pt1 <- ggplot(pltdt, aes(x = Date, y = N, col = Compartment)) +
-      geom_line() +
-      theme_light()
-
-    pt2 <- ggplot(output, aes(x = Date, y = Spillover)) +
-      geom_line() +
-      theme_light()
-
-    print(ggpubr::ggarrange(pt1, pt2, nrow = 2, ncol = 1))
-    ggsave("output_summary.pdf")
-  }
+  # if(plot) {
+  #   pltdt <- output |>
+  #     pivot_longer(Susceptible:Dead, names_to = "Compartment", values_to = "N")
+  #
+  #   pt1 <- ggplot(pltdt, aes(x = Date, y = N, col = Compartment)) +
+  #     geom_line() +
+  #     theme_light()
+  #
+  #   pt2 <- ggplot(output, aes(x = Date, y = Spillover)) +
+  #     geom_line() +
+  #     theme_light()
+  #
+  #   print(ggpubr::ggarrange(pt1, pt2, nrow = 2, ncol = 1))
+  #   ggsave("output_summary.pdf")
+  # }
 
   return(output)
 

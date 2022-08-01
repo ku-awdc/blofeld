@@ -68,23 +68,71 @@ seed_patches <- which(small_patches$Index %in% str_c("DK032_0", c(687,688,755,75
 
 ## Options for running:
 # results <- multi_patch_fun(iteration=1L, patches=patches, neighbours=neighbours, use_migration=TRUE, seed_patch=756L, years=5L, plot=FALSE)
-# results <- multi_patch_fun(iteration=1L, patches=small_patches, neighbours=small_neighbours, use_migration=TRUE, seed_patch=seed_patches, years=5L, plot=TRUE, progbar=TRUE)
+# results <- multi_patch_fun(iteration=1L, patches=small_patches, neighbours=small_neighbours, use_migration=TRUE, seed_patch=seed_patches, years=10L, plot=TRUE, progbar=TRUE)
 # results <- multi_patch_fun(iteration=1L, patches=patches_hole, neighbours=neighbours_hole, use_migration=TRUE, seed_patch=1L, years=5L, plot=FALSE)
+
+multi_patch_fun(
+  use_migration = TRUE,
+  iteration = 1L,
+  patches = small_patches,
+  neighbours = small_neighbours,
+  seed_patch = seed_patches,
+  years = 5L,
+  plot = TRUE,
+  progbar = TRUE,
+  plot_name = "with_diffusion_migration"
+)
+
+multi_patch_fun(
+  use_migration = FALSE,
+  iteration = 1L,
+  patches = small_patches,
+  neighbours = small_neighbours,
+  seed_patch = seed_patches,
+  years = 5L,
+  plot = TRUE,
+  progbar = TRUE,
+  plot_name = "with_constant_migration"
+)
 
 stop()
 
 ## Full simulation
-iters <- 1000
-years <- 10L
+iters <- 100
+years <- 5L
 
 # Note:  shared memory forking is a problem with reference classes!
 # PSOCK should work but need to export the right things, and maybe enable cloning in the reference classes?
 cl <- parallel::makePSOCKcluster(max(getOption("mc.cores", 2L), 10L))
 cl <- NULL
 
-results_modelA <- pbapply::pblapply(1:iters, multi_patch_fun, cl=cl, patches=small_patches, neighbours=small_neighbours, use_migration=FALSE, seed_patch=seed_patches, years=years, plot=FALSE, progbar=FALSE) |> bind_rows() |> mutate(Model = "A")
+results_modelA <-
+  pbapply::pblapply(
+    1:iters,
+    multi_patch_fun,
+    cl = cl,
+    patches = small_patches,
+    neighbours = small_neighbours,
+    use_migration = FALSE,
+    seed_patch = seed_patches,
+    years = years,
+    plot = FALSE,
+    progbar = FALSE
+  ) |> bind_rows() |> mutate(Model = "A")
 
-results_modelB <- pbapply::pblapply(1:iters, multi_patch_fun, cl=cl, patches=small_patches, neighbours=small_neighbours, use_migration=TRUE, seed_patch=seed_patches, years=years, plot=FALSE, progbar=FALSE) |> bind_rows() |> mutate(Model = "B")
+results_modelB <-
+  pbapply::pblapply(
+    1:iters,
+    multi_patch_fun,
+    cl = cl,
+    patches = small_patches,
+    neighbours = small_neighbours,
+    use_migration = TRUE,
+    seed_patch = seed_patches,
+    years = years,
+    plot = FALSE,
+    progbar = FALSE
+  ) |> bind_rows() |> mutate(Model = "B")
 
 parallel::stopCluster(cl)
 
@@ -94,25 +142,29 @@ output <- bind_rows(results_modelA, results_modelB)
 ## Then make some plots to compare the models:
 
 pltdt <- output |>
-  pivot_longer(Susceptible:Dead, names_to = "Compartment", values_to = "N") |>
+  # pivot_longer(Susceptible:Dead, names_to = "Compartment", values_to = "N") |>
+  mutate(TotalAlive = Susceptible + Infected) |>
+  pivot_longer(TotalAlive, names_to = "Compartment", values_to = "N") |>
   group_by(Date, Model, Compartment) |>
   summarise(Mean = mean(N), LCI = quantile(N, 0.025), UCI = quantile(N, 0.975), .groups="drop")
 
-pt1 <- ggplot(pltdt, aes(x = Date, y = Mean, col = Compartment, fill=Compartment, ymin=LCI, ymax=UCI)) +
+pt1 <- ggplot(pltdt, aes(x = Date, y = Mean, col = Model, fill=Model, ymin=LCI, ymax=UCI)) +
   geom_ribbon(alpha=0.2, col="transparent") +
   geom_line() +
   theme_light() +
-  facet_wrap(~ Model)
-
+  # facet_wrap(~ Model, ncol = 1) +
+  NULL
+pt1
 spillover <- output |>
   group_by(Date, Model) |>
   summarise(Mean = mean(Spillover), LCI = quantile(Spillover, 0.025), UCI = quantile(Spillover, 0.975), .groups="drop")
 
 pt2 <- ggplot(spillover, aes(x = Date, y = Mean, col=Model, fill=Model, ymin=LCI, ymax=UCI)) +
-  geom_ribbon(alpha=0.2, col="transparent") +
+  # geom_ribbon(alpha=0.2, col="transparent") +
   geom_line() +
+  # facet_wrap(~Model, ncol = 1) +
   theme_light()
 
 print(ggpubr::ggarrange(pt1, pt2, nrow = 2, ncol = 1))
-ggsave("output_presentation.pdf")
+ggsave("output_presentation.png")
 
