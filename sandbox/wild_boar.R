@@ -44,20 +44,48 @@ WildBoar <- R6Class("WildBoar",
 
 	  },
 
-		seed_asf = function(unit, number) {
+	  seed_asf = function(unit, number) {
 
-		  stopifnot(all(private$totals[unit] >= number))
+	    stopifnot(all(private$totals[unit] >= number))
 
-		  private$compartments[unit,1L:4L] <- 0L
-		  private$compartments[unit,2L] <- number
-		  private$compartments[unit,1L] <- private$totals[unit] - number
-		  stopifnot(all(private$totals == apply(private$compartments,1,sum)))
+	    private$compartments[unit,1L:4L] <- 0L
+	    private$compartments[unit,2L] <- number
+	    private$compartments[unit,1L] <- private$totals[unit] - number
+	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
 
-		  private$newinf[unit] <- private$newinf[unit] + number
+	    private$newinf[unit] <- private$newinf[unit] + number
 
-		},
+	  },
 
-		update = function(infection_pressure, migration_pressure, control_matrix, time_steps = 1L) {
+	  reseed_asf = function(unit, number) {
+
+	    # If the number of infected to seed exceeds the number alive reduce it:
+	    number <- pmin(number, private$compartments[unit,1L])
+
+	    private$compartments[unit,1L] <- private$compartments[unit,1L] - number
+	    private$compartments[unit,2L] <- private$compartments[unit,2L] + number
+	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
+	    stopifnot(all(private$compartments >= 0L))
+
+	    private$newinf[unit] <- private$newinf[unit] + number
+
+	  },
+
+	  add_carcass = function(unit, number) {
+
+	    # If the number of carcasses to seed exceeds the number alive reduce it:
+	    number <- pmin(number, private$compartments[unit,1L])
+
+	    private$compartments[unit,1L] <- private$compartments[unit,1L] - number
+	    private$compartments[unit,3L] <- private$compartments[unit,3L] + number
+	    stopifnot(all(private$totals == apply(private$compartments,1,sum)))
+	    stopifnot(all(private$compartments >= 0L))
+
+	    private$newinf[unit] <- private$newinf[unit] + number
+
+	  },
+
+	  update = function(infection_pressure, migration_pressure, control_matrix, time_steps = 1L) {
 
 		  self$reset_changed()
 		  private$newinf <- numeric(private$N)
