@@ -24,7 +24,8 @@ Spillover <- R6Class("Spillover",
 		update = function(statuses, control_matrix) {
 
 		  # Spillover is density-dependent (alive infected):
-		  rv <- colSums(private$beta * statuses[,3L])
+		  # rv <- colSums(private$beta * statuses[,3L])
+		  rv <- crossprod(private$beta, statuses[,3L])[,1]
 
 		  return(rv)
 

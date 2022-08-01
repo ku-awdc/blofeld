@@ -1,86 +1,8 @@
-library("tidyverse")
-library("sf")
-library("igraph")
-library("HexScape")
-
-
-## Switch for migration vs uniform repopulation:
-USE_MIGRATION <- TRUE
-
-## Switch for toy vs real population:
-USE_TOY <- FALSE
-
-## Patch to seed:
-SEED_PATCH <- if (USE_TOY) 1L else 756L
-SEED_PATCH <- if (USE_TOY) 1L else 91L # adjusted for `small_patches_sf`
-
-## Number of years:
-YEARS <- 5L
-
-
-## Extremely messy code:
-
-if (Sys.info()[["user"]] == "matthewdenwood") {
-  setwd("~/Documents/GitHub/blofeld/sandbox")
-  (load("/Users/matthewdenwood/Documents/Research/Papers/Hexscape paper/patches_DK032.rda"))
-}
-
-if (Sys.info()[["user"]] == "tpb398") {
-  setwd("C:/Users/tpb398/Documents/GitHub/blofeld/sandbox")
-  (load("C:/Users/tpb398/Documents/GitHub/blofeld_asf/rscripts/data-raw/patches_DK032.rda"))
-}
-
-# Load toy patches:
-if (USE_TOY) {
-  (load("toy_patches.rda"))
-  patches <- patches_hole
-  neighbours <- neighbours_hole
-}
-
-patches$carrying_capacity <- round(patches$carrying_capacity)
-st_as_sf(patches, sf_column_name  = "geometry") ->
-  patches_sf
-library(tmap)
-tmap_mode("view")
-tmap_options(check.and.fix = TRUE)
-tm_shape(patches_sf) +
-  tm_polygons() +
-  tm_polygons(st_as_sf(bbox_)) +
-  # tm_polygons(col = "carrying_proportion") +
-  # tm_fill(col = "carrying_proportion") +
-  NULL
-
-
-c(bottom = "DK032_0757",
-  top = "DK032_1712",
-  left = "DK032_0482",
-  right = "DK032_2390") %>%
-  enframe(value = "Index") %>%
-  left_join(patches) %>% {
-    sf::st_bbox(.$hex_centroid) %>%
-      st_as_sfc()
-  } -> bbox_
-ggplot() +
-  geom_sf(data = patches_sf, fill = NA) +
-  geom_sf(data = bbox_, fill = NA) +
-  NULL
-
-small_patches_sf <- patches_sf[st_intersects(bbox_, patches_sf, sparse = FALSE)[1,],]
-
-ggplot() +
-  geom_sf(data = small_patches_sf, aes(fill = carrying_proportion)) +
-  # geom_sf(data = bbox_) +
-  NULL
-
-patches <- patches %>% semi_join(small_patches_sf, by = "Index")
-neighbours <- neighbours %>%
-  semi_join(small_patches_sf, by = "Index") %>%
-  semi_join(small_patches_sf, by = c("Neighbour" = "Index"))
-
-graph <- graph_from_data_frame(neighbours, vertices = patches)
-
-distances(graph)
-
+#' TODO: Repeat 250 times without migration and with migration once a good scenario can
+#' be found.
+#'
+#'
+#'
 # First create a single time object:
 source("time.R")
 dt <- as.Date("2020-01-01")
@@ -89,7 +11,7 @@ time <- Time$new(dt)
 # Then create one or more population:
 source("wild_boar.R")
 wbpop <- WildBoar$new(time, nrow(patches))
-wbpop$setup(patches, gamma = 0.1, carc_prob = 0.05, carc_gamma = 1 / 365)
+wbpop$setup(patches, gamma = 0.1, carc_prob = 0.05, carc_gamma = 1 / (365 / 4))
 
 source("domestic_pigs.R")
 dpop <- DomesticPigs$new(time, nrow(patches))
@@ -97,7 +19,7 @@ dpop$setup(patches)
 dpop$status
 dpop$status %>% head()
 
-# Then create a single locations objct:
+# Then create a single locations object:
 source("locations.R")
 locations <- Locations$new(time, list(wbpop))
 
@@ -163,7 +85,7 @@ mkplt <- function(wbpop, dpop, year) {
   print(ggpubr::ggarrange(pt1, pt2, pt4, pt3, nrow = 2L, ncol = 2L))
 }
 
-pdf("output.pdf")
+# pdf("output.pdf")
 mkplt(wbpop, dpop, 0)
 died <- FALSE
 pb <- txtProgressBar(style = 3)
@@ -204,7 +126,7 @@ for (i in 1:nrow(output)) {
   setTxtProgressBar(pb, i / nrow(output))
 }
 close(pb)
-dev.off()
+# dev.off()
 
 output <- output |> mutate(Date = as.Date(Year * 365 + Day, origin = as.Date("2000-01-01")))
 
