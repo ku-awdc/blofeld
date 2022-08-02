@@ -77,7 +77,7 @@ multi_patch_fun(
   patches = small_patches,
   neighbours = small_neighbours,
   seed_patch = seed_patches,
-  years = 5L,
+  years = 10L,
   plot = TRUE,
   progbar = TRUE,
   plot_name = "with_diffusion_migration"
@@ -89,7 +89,7 @@ multi_patch_fun(
   patches = small_patches,
   neighbours = small_neighbours,
   seed_patch = seed_patches,
-  years = 5L,
+  years = 10L,
   plot = TRUE,
   progbar = TRUE,
   plot_name = "with_constant_migration"
@@ -99,10 +99,11 @@ stop()
 
 ## Full simulation
 iters <- 100
-years <- 5L
+years <- 10L
 
 # Note:  shared memory forking is a problem with reference classes!
-# PSOCK should work but need to export the right things, and maybe enable cloning in the reference classes?
+# PSOCK should work but need to export the right things,
+# and maybe enable cloning in the reference classes?
 cl <- parallel::makePSOCKcluster(max(getOption("mc.cores", 2L), 10L))
 cl <- NULL
 
@@ -137,7 +138,11 @@ results_modelB <-
 parallel::stopCluster(cl)
 
 output <- bind_rows(results_modelA, results_modelB)
-
+save(results_modelA,
+     results_modelB,
+     output,
+     file = "output/output_results.rda",
+     compress = FALSE)
 
 ## Then make some plots to compare the models:
 
@@ -157,14 +162,24 @@ pt1 <- ggplot(pltdt, aes(x = Date, y = Mean, col = Model, fill=Model, ymin=LCI, 
 pt1
 spillover <- output |>
   group_by(Date, Model) |>
-  summarise(Mean = mean(Spillover), LCI = quantile(Spillover, 0.025), UCI = quantile(Spillover, 0.975), .groups="drop")
+  summarise(Mean = mean(Spillover),
+            LCI = quantile(Spillover, 0.025), UCI = quantile(Spillover, 0.975), .groups = "drop")
 
-pt2 <- ggplot(spillover, aes(x = Date, y = Mean, col=Model, fill=Model, ymin=LCI, ymax=UCI)) +
+pt2 <- ggplot(spillover,
+              aes(x = Date, y = Mean, col = Model, fill = Model, ymin = LCI, ymax = UCI)) +
   # geom_ribbon(alpha=0.2, col="transparent") +
-  geom_line() +
+  geom_line(size = 1.2) +
+  labs(y = "E(#Spill-over events)") +
+  guides(color = guide_legend(override.aes = list(size = 2))) +
+  ylim(0, 4) +
   # facet_wrap(~Model, ncol = 1) +
-  theme_light()
+  theme_transparent()
+  # theme_light()
 
+pt2
+ggsave(plot = pt2, scale = 0.3, filename = "expected_spill_over_events.png", bg = "transparent")
+browseURL("expected_spill_over_events.png")
 print(ggpubr::ggarrange(pt1, pt2, nrow = 2, ncol = 1))
+
 ggsave("output_presentation.png")
 
