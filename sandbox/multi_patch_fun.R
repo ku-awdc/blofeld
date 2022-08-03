@@ -83,9 +83,11 @@ multi_patch_fun <-
     ) |>
       arrange(Year, Day)
 
-    mkplt <- function(wbpop, dpop, year) {
+    mkplt <- function(wbpop, dpop, year) {  
       patches$popsize <- wbpop$status_pop[, "Infectious"]
-      patches$infected <- factor(case_when(patches$popsize == 0L ~ "Extinct", wbpop$status_asf[, "Infectious"] == 0L ~ "No", TRUE ~ "Yes"), levels = c("Extinct", "No", "Yes"))
+      patches$infected <- factor(case_when(patches$popsize == 0L ~ "Extinct", 
+        wbpop$status_asf[, "Infectious"] == 0L ~ "No", TRUE ~ "Yes"), 
+        levels = c("Extinct", "No", "Yes"))
       patches$carcass <- factor(wbpop$status_asf[, "Environment"] > 0L, levels = c(FALSE, TRUE), labels = c("No", "Yes"))
       patches$spillover <- dpop$status[, "NumberOfFarms"] * dpop$status[, "CumulativeInfProb"]
       pt1 <- ggplot(patches, aes(geometry = geometry, fill = popsize + 1)) +
