@@ -57,7 +57,7 @@ multi_patch_fun <-
     # Then create a single locations objct:
     locations <- Locations$new(time, list(wbpop))
 
-    # x`` module for migration:
+    # Spread module for migration:
     migration <- Migration$new(time, locations, list(wbpop, dpop), type = "within")
     migration$setup(graph,
       beta_breed = 0.1, beta_migrate = 0.025,
