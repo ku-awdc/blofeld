@@ -14,7 +14,7 @@ Diffusion <- R6Class("Diffusion",
             ## Within-patch frequency-dependent transmission:
             private$beta_freq <- -beta_freq
 
-            ## Within-patch and contigous patch density-dependent transmission from carcasses:
+            ## Within-patch and contiguous patch density-dependent transmission from carcasses:
             mbetas <- -c(beta_carc, beta_carc * 0.1, 0.0)
             stopifnot(length(mbetas) == 3L)
             # Populate beta_carc so it is a matrix of -betas based on distance:

@@ -57,7 +57,7 @@ multi_patch_fun <-
     # Then create a single locations objct:
     locations <- Locations$new(time, list(wbpop))
 
-    # Spread module for migration:
+    # x`` module for migration:
     migration <- Migration$new(time, locations, list(wbpop, dpop), type = "within")
     migration$setup(graph,
       beta_breed = 0.1, beta_migrate = 0.025,
@@ -83,12 +83,13 @@ multi_patch_fun <-
     ) |>
       arrange(Year, Day)
 
-    mkplt <- function(wbpop, dpop, year) {  
+    mkplt <- function(wbpop, dpop, year) {
       patches$popsize <- wbpop$status_pop[, "Infectious"]
-      patches$infected <- factor(case_when(patches$popsize == 0L ~ "Extinct", 
-        wbpop$status_asf[, "Infectious"] == 0L ~ "No", TRUE ~ "Yes"), 
+      patches$infected <- factor(case_when(patches$popsize == 0L ~ "Extinct",
+        wbpop$status_asf[, "Infectious"] == 0L ~ "No", TRUE ~ "Yes"),
         levels = c("Extinct", "No", "Yes"))
       patches$carcass <- factor(wbpop$status_asf[, "Environment"] > 0L, levels = c(FALSE, TRUE), labels = c("No", "Yes"))
+      #TODO: move this to the Spillover module.
       patches$spillover <- dpop$status[, "NumberOfFarms"] * dpop$status[, "CumulativeInfProb"]
       pt1 <- ggplot(patches, aes(geometry = geometry, fill = popsize + 1)) +
         geom_sf() +

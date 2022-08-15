@@ -1,8 +1,8 @@
-library("tidyverse")
-library("sf")
-library("tmap")
-library("igraph")
-library("HexScape")
+library(tidyverse)
+library(sf)
+library(tmap)
+library(igraph)
+library(HexScape)
 
 ## Load helper function and load real patches:
 if (Sys.info()[["user"]] == "matthewdenwood") {
@@ -56,13 +56,21 @@ ggplot() +
   # geom_sf(data = bbox_) +
   NULL
 
-small_patches <- patches %>% semi_join(small_patches_sf, by = "Index") %>% mutate(label = str_replace(Index, "DK032_", ""))
+small_patches <- patches %>%
+  semi_join(small_patches_sf %>%
+              as_tibble(), by = "Index") %>%
+  mutate(label = str_replace(Index, "DK032_", ""))
 small_neighbours <- neighbours %>%
   semi_join(small_patches_sf, by = "Index") %>%
   semi_join(small_patches_sf, by = c("Neighbour" = "Index"))
 
 
-ggplot(small_patches, aes(geometry=geometry, label=label, fill=carrying_capacity)) + geom_sf() + geom_sf_text() + coord_sf(xlim=c(4270000, 4280000), ylim=c(3520000, 3530000))
+ggplot(small_patches,
+       aes(
+         geometry = geometry,
+         label = label,
+         fill = carrying_capacity
+       )) + geom_sf() + geom_sf_text() + coord_sf(xlim=c(4270000, 4280000), ylim=c(3520000, 3530000))
 seed_patches <- which(small_patches$Index %in% str_c("DK032_0", c(687,688,755,756,821,822)))
 
 
@@ -71,6 +79,7 @@ seed_patches <- which(small_patches$Index %in% str_c("DK032_0", c(687,688,755,75
 # results <- multi_patch_fun(iteration=1L, patches=small_patches, neighbours=small_neighbours, use_migration=TRUE, seed_patch=seed_patches, years=10L, plot=TRUE, progbar=TRUE)
 # results <- multi_patch_fun(iteration=1L, patches=patches_hole, neighbours=neighbours_hole, use_migration=TRUE, seed_patch=1L, years=5L, plot=FALSE)
 
+set.seed(2022-08-08-1)
 multi_patch_fun(
   use_migration = TRUE,
   iteration = 1L,
@@ -82,7 +91,10 @@ multi_patch_fun(
   progbar = TRUE,
   plot_name = "with_diffusion_migration"
 )
+system("pdfcrop with_diffusion_migration.pdf")
+system("magick convert -delay 66 -density 300 -dispose previous with_diffusion_migration-crop.pdf with_diffusion_migration-crop.gif")
 
+set.seed(2022-08-08-1)
 multi_patch_fun(
   use_migration = FALSE,
   iteration = 1L,
@@ -94,6 +106,9 @@ multi_patch_fun(
   progbar = TRUE,
   plot_name = "with_constant_migration"
 )
+system("pdfcrop with_constant_migration.pdf")
+#' [Source](https://stackoverflow.com/questions/14676119/imagemagick-and-transparent-background-for-animated-gif)
+system("magick convert -delay 66 -density 300 -dispose previous with_constant_migration-crop.pdf with_constant_migration-crop.gif")
 
 stop()
 
