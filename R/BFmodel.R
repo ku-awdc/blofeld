@@ -21,6 +21,7 @@ BFmodel <- R6::R6Class(
     #' @param bf_control a single object of (or deriving from) class BFcontrol
     #' @param bf_pop a list of one or more object(s) of (or deriving from) class BFpop
     #' @param bf_spread a list of zero or more object(s) of (or deriving from) class BFspread
+    #' @param bf_report a list of one or more object(s) of (or deriving from) class BFreport
     #'
     #' @return A new BLOFELD model object
     initialize = function(bf_control, bf_pop = list(), bf_spread = list()){

@@ -4,12 +4,12 @@ if(length(find("mlists"))==0L) source("R/R6utils.R")
 #'
 #' @description
 #' Population classes must derive from BFpop and override the following methods:
-#' - update
-#' - check_state
-#' - add_beta
-#' - infect
-#' - replace
+#' - reset
+#' - update (with time step; also resets ext_beta to zero)
 #' - state (active binding)
+#' - check (validation)
+#' - ext_beta (double)
+#' - ext_infect (double/int of number to convert to infected)
 #' - IsCpp (optionally; should be TRUE if the class is implemented in C++)
 #'
 #' @importFrom tibble tibble
