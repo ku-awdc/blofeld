@@ -5,8 +5,8 @@
 /*
 TODO
 
-1. Change template Settings to class so that we can derive from Settings for new things (but use concepts??)
-2. Have an Info class, taking Settings as a template, with time and an index of population numbers and unique identifiers for checking
+1. Use concepts??
+
 3. Add Settings as a template to all other classes
 4. Separate .h and .ipp files, but include both from blofeld.h
 5. Use blofeld namespace
@@ -37,6 +37,10 @@ public:
 
   int test()
   {
+    blofeld::Info info{};
+    blofeld::Population<blofeld::Options{}> pop(info);
+    pop.update();
+
     return m_val;
   }
 };
@@ -51,7 +55,6 @@ constexpr blofeld::Options<OptionsTest> options{ .debug = true, .log_level=10, .
 constexpr blofeld::Options<OptionsTest> options2{ .debug = true, .log_level=10 };
 constexpr blofeld::Options options3{ .debug = false, .log_level=10 };
 constexpr blofeld::Options options4;
-
 
 
 RCPP_MODULE(blofeld_module){

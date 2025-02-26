@@ -1,6 +1,7 @@
 #ifndef BLOFELD_OPTIONS_H
 #define BLOFELD_OPTIONS_H
 
+
 namespace blofeld
 {
   struct OptionsEmpty
