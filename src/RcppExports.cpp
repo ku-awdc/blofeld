@@ -3,6 +3,8 @@
 
 #include "../inst/include/blofeld.h"
 #include <Rcpp.h>
+#include <string>
+#include <set>
 
 using namespace Rcpp;
 
@@ -12,10 +14,25 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 
+// validate (ensure exported C++ functions exist before calling them)
+static int _blofeld_RcppExport_validate(const char* sig) { 
+    static std::set<std::string> signatures;
+    if (signatures.empty()) {
+    }
+    return signatures.find(sig) != signatures.end();
+}
+
+// registerCCallable (register entry points for exported C++ functions)
+RcppExport SEXP _blofeld_RcppExport_registerCCallable() { 
+    R_RegisterCCallable("blofeld", "_blofeld_RcppExport_validate", (DL_FUNC)_blofeld_RcppExport_validate);
+    return R_NilValue;
+}
+
 RcppExport SEXP _rcpp_module_boot_blofeld_module();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcpp_module_boot_blofeld_module", (DL_FUNC) &_rcpp_module_boot_blofeld_module, 0},
+    {"_blofeld_RcppExport_registerCCallable", (DL_FUNC) &_blofeld_RcppExport_registerCCallable, 0},
     {NULL, NULL, 0}
 };
 
