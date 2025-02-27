@@ -56,13 +56,17 @@ constexpr blofeld::Options<OptionsTest> options2{ .debug = true, .log_level=10 }
 constexpr blofeld::Options options3{ .debug = false, .log_level=10 };
 constexpr blofeld::Options options4;
 
-int register_blofeld_class();
+int register_blofeld_class(std::string const& type);
+void deregister_blofeld_class(int number);
+Rcpp::DataFrame registered_blofeld_classes();
 
 RCPP_MODULE(blofeld_module){
 
 	using namespace Rcpp;
-  
+
   function("register_blofeld_class", &register_blofeld_class);
+  function("deregister_blofeld_class", &deregister_blofeld_class);
+  function("registered_blofeld_classes", &registered_blofeld_classes);
 
   using Test = TestBase<options3>;
 	class_<Test>("Test")
