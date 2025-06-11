@@ -29,9 +29,11 @@ RcppExport SEXP _blofeld_RcppExport_registerCCallable() {
 }
 
 RcppExport SEXP _rcpp_module_boot_blofeld_module();
+RcppExport SEXP _rcpp_module_boot_wrap_class_example();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcpp_module_boot_blofeld_module", (DL_FUNC) &_rcpp_module_boot_blofeld_module, 0},
+    {"_rcpp_module_boot_wrap_class_example", (DL_FUNC) &_rcpp_module_boot_wrap_class_example, 0},
     {"_blofeld_RcppExport_registerCCallable", (DL_FUNC) &_blofeld_RcppExport_registerCCallable, 0},
     {NULL, NULL, 0}
 };

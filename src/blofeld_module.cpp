@@ -2,6 +2,9 @@
 
 #include "blofeld.h"
 
+#include "Compartment.h"
+
+
 /*
 TODO
 
