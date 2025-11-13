@@ -2,11 +2,14 @@
 #define BLOFELD_COMPARTMENT_H
 
 #include <array>
+#include <numeric>
+#include <iostream>
+#include <typeinfo>
 
 // 
 
 // TODO: should take/carry be immediate?  So only insert is done on delay?
-// TODO: allow s_ncomps = 0 in which case it is set at run time
+// TODO: allow s_ctype.n = 0 in which case it is set at run time
 
 namespace blofeld
 {
@@ -21,65 +24,91 @@ namespace blofeld
     disabled,       // Removed - compiles to nothing
     array,          // Fixed size (including 1, but not zero)
     inplace_vector, // Emulation of c++26 inplace_vector i.e. stack-based, dynamic up to max size
-    vector,         // Heap-based, dynamic - s_ncomps is ignored
-    balancing       // Fixed size of 1 and allows negative values (for birth/death) - s_ncomps is ignored
+    vector,         // Heap-based, dynamic - s_ctype.n is ignored
+    balancing       // Fixed size of 1 and allows negative values (for birth/death) - s_ctype.n is ignored
   };
 
   // Literal type
-  class CompType
+  struct CompType
   {
-    const CompCont m_compcont;
-    const size_t m_n;
-    
-  public:
-    CompType(CompCont container) :
-      m_compcont(container), m_n(0)
-    {
-      
-    }
-
-    CompType(CompCont const container, size_t const n) :
-      m_compcont(container), m_n(n)
-    {
-      
-    }    
+    CompCont const compcont;
+    size_t const n;
   };
   
   template <auto s_cts, ModelType s_mtype, CompType s_ctype>
   class Compartment
   {
   private:
-    // TODO: these need to be array or vector, depending on s_ncomps==0
-    std::array<double, s_ncomps> m_values { };
-    std::array<double, s_ncomps> m_changes { };
+    
+    using ValueType = std::conditional_t<
+      s_mtype == ModelType::deterministic,
+      double,
+      std::conditional_t<
+        s_mtype == ModelType::stochastic,
+        int,
+        void
+      >
+    >;
+        
+    // TODO: other container types
+    using ContainerType = std::conditional_t<
+      s_ctype.compcont == CompCont::array,
+      std::array<ValueType, s_ctype.n>,
+      std::conditional_t<
+        s_ctype.compcont == CompCont::vector,
+        std::vector<ValueType>,
+        void
+      >
+    >;
+      
+    ContainerType m_values { };
+    ContainerType m_changes { };
+  
+    using Bridge = decltype(s_cts)::Bridge;
+    Bridge& m_bridge;
   
     const int m_ncomps;
 
     auto check_compartments() const noexcept(!s_cts.debug)
       -> void
     {
-      if constexpr (!s_cts.debug && s_ncomps!=0U)
+      if constexpr (!s_cts.debug && s_ctype.n!=0U)
       {
-        if (m_ncomps != s_ncomps) Rcpp::stop("Non-matching number of sub-compartments");
+        if (m_ncomps != s_ctype.n) m_bridge.stop("Non-matching number of sub-compartments");
       }
-      if constexpr (s_ncomps <= 0U)
+      if constexpr (s_ctype.n <= 0U)
       {
-        Rcpp::stop("Negative s_ncomps are not allowed, and values of 0 are not yet supported");
+        m_bridge.stop("Negative s_ctype.n are not allowed, and values of 0 are not yet supported");
       }    
+    }
+
+    void validate()
+    {
+      if constexpr (s_mtype == ModelType::deterministic) {
+        static_assert(std::is_same<ValueType, double>::value, "ValueType should be double for determinstic models");
+      } else if constexpr (s_mtype == ModelType::stochastic) {
+        static_assert(std::is_same<ValueType, int>::value, "ValueType should be int for determinstic models");
+      } else {
+        static_assert(false, "Unrecognised ModelType");
+      }
+      
+      // TODO: validate container type
     }
 
     Compartment() = delete;
   
   public:
-    explicit Compartment(int const ncomps) noexcept(!s_cts.debug)
-      : m_ncomps(ncomps)
+    Compartment(Bridge& bridge, int const ncomps) noexcept(!s_cts.debug)
+      : m_bridge(bridge), m_ncomps(ncomps)
     {
+      validate();
       check_compartments();
     }
 
-    Compartment(int const ncomps, double const value) noexcept(!s_cts.debug)
-      : m_ncomps(ncomps)
+    Compartment(Bridge& bridge, int const ncomps, double const value) noexcept(!s_cts.debug)
+      : m_bridge(bridge), m_ncomps(ncomps)
     {
+      validate();
       set_sum(value);
       check_compartments();
     }
@@ -88,7 +117,7 @@ namespace blofeld
       noexcept(!s_cts.debug)
       -> void
     {
-      for(int i=0; i<s_ncomps; ++i)
+      for(int i=0; i<s_ctype.n; ++i)
       {
         m_values[i] += m_changes[i];
         m_changes[i] = 0.0;
@@ -100,8 +129,8 @@ namespace blofeld
       
         if constexpr (s_cts.debug){
           if(m_values[i] < 0.0){
-            Rcpp::Rcout << m_values[i] << " < 0.0\n";
-            Rcpp::stop("Applying changes caused a negative value");
+            //m_bridge.cout << m_values[i] << " < 0.0\n";
+            m_bridge.stop("Applying changes caused a negative value");
           }
         }      
       }
@@ -109,9 +138,9 @@ namespace blofeld
 
     [[nodiscard]] auto get_sum()
       const noexcept(!s_cts.debug)
-      -> double
+      -> ValueType
     {
-      double const rv = std::accumulate(m_values.begin(), m_values.end(), 0.0);
+      double const rv = std::accumulate(m_values.begin(), m_values.end(), static_cast<ValueType>(0.0));
       return rv;
     }
 
@@ -120,8 +149,8 @@ namespace blofeld
     {
       // TOODO: switch to distribute balanced or all in first box
       for(auto& val : m_values){
-        // val = value / static_cast<double>(s_ncomps);
-        val = 0.0;
+        // val = value / static_cast<double>(s_ctype.n);
+        val = static_cast<ValueType>(0.0);
       }
       m_values[0] = value;
     }
@@ -145,7 +174,7 @@ namespace blofeld
     [[nodiscard]] auto take_rate(double const rate, double const d_time) noexcept(!s_cts.debug)
       -> double
     {
-      double const prop = 1.0 - std::exp(-rate * s_ncomps * d_time);
+      double const prop = 1.0 - std::exp(-rate * s_ctype.n * d_time);
       double const rv = take_prop(prop);
       return rv;
     }
@@ -159,8 +188,8 @@ namespace blofeld
         double const propr = 1.0 - (number / get_sum());
         if constexpr (s_cts.debug)
         {
-          if (propr > 1.0) Rcpp::stop("Negative number supplied to remove from compartment");
-          if (propr < 0.0) Rcpp::stop("Attempt to remove too high a number from compartment");
+          if (propr > 1.0) m_bridge.stop("Negative number supplied to remove from compartment");
+          if (propr < 0.0) m_bridge.stop("Attempt to remove too high a number from compartment");
         }
         for(auto& val : m_values){
           val *= propr;
@@ -174,13 +203,13 @@ namespace blofeld
       -> double
     {
       double rv = 0.0;
-      for(int i=0; i<s_ncomps; ++i){
+      for(int i=0; i<s_ctype.n; ++i){
         double const tt = m_values[i] * prop;
         rv += tt;
         m_changes[i] -= tt;
       }
       if constexpr (s_cts.debug){
-        if(rv < 0.0) Rcpp::stop("Returning negative value from take_prop");
+        if(rv < 0.0) m_bridge.stop("Returning negative value from take_prop");
       }
       return rv;
     }
@@ -189,15 +218,15 @@ namespace blofeld
       noexcept(!s_cts.debug)
       -> double
     {
-      double const prop = 1.0 - std::exp(-rate * s_ncomps * d_time);
+      double const prop = 1.0 - std::exp(-rate * s_ctype.n * d_time);
       double carry = 0.0;
-      for(int i=0; i<s_ncomps; ++i){
+      for(int i=0; i<s_ctype.n; ++i){
         m_changes[i] += carry;
         carry = m_values[i] * prop;
         m_changes[i] -= carry;
       }
       if constexpr (s_cts.debug){
-        if(carry < 0.0) Rcpp::stop("Returning negative value from carry_rate");
+        if(carry < 0.0) m_bridge.stop("Returning negative value from carry_rate");
       }    
       return carry;
     }
@@ -211,46 +240,55 @@ namespace blofeld
 
     auto ptr()
       noexcept(!s_cts.debug)
-      -> std::array<double, s_ncomps>&
+      -> ContainerType&
     {
+      // TODO: will need to be a span for inplace_vector
       return m_values;
     }
 
     auto ptr()
       const noexcept(!s_cts.debug)
-      -> std::array<double, s_ncomps> const&
+      -> ContainerType const&
     {
+      // TODO: will need to be a span for inplace_vector
       return m_values;
     }
 
     // Note: unusual + overloads return double
-    [[nodiscard]] auto operator+(double const sum)
+    [[nodiscard]] auto operator+(ValueType const sum)
       const noexcept(!s_cts.debug)
-        -> double
+        -> ValueType
     {
       return sum + get_sum();
     }
-    template <auto sc, unsigned int ss>//, size_t sn>
-    [[nodiscard]] auto operator+(Compartment<sc, ss> const& obj)
+    
+    template <auto scts, ModelType sm, CompType sc>
+    [[nodiscard]] auto operator+(Compartment<scts, sm, sc> const& obj)
       const noexcept(!s_cts.debug)
-        -> double
+        -> ValueType
     {
       return obj.get_sum() + get_sum();
     }
-
+    
   };
 
-  template <auto sc, unsigned int ss>//, size_t sn>
-  [[nodiscard]] auto operator+(double const sum, Compartment<sc, ss> const& obj)
-    -> double
+  template <auto scts, ModelType sm, CompType sc, typename T>
+  [[nodiscard]] auto operator+(T const sum, Compartment<scts, sm, sc> const& obj)
+    -> T
   {
+    using T2 = decltype(obj)::ValueType;
+    static_assert(std::is_same<T, T2>::value, "Inconsistent ValueType when summing compartments");
+    
     return sum + obj.get_sum();
   }
 
-  template <auto sc, unsigned int ss>//, size_t sn>
-  [[nodiscard]] auto operator+(Compartment<sc, ss> const& obj, double const sum)
-    -> double
+  template <auto scts, ModelType sm, CompType sc, typename T>
+  [[nodiscard]] auto operator+(Compartment<scts, sm, sc> const& obj, T const sum)
+    -> T
   {
+    using T2 = decltype(obj)::ValueType;
+    static_assert(std::is_same<T, T2>::value, "Inconsistent ValueType when summing compartments");
+    
     return sum + obj.get_sum();
   }
 
