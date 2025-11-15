@@ -198,6 +198,47 @@ namespace blofeld
       return number;
     }
     */
+    template<size_t s_ntake>
+    [[nodiscard]] auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
+      -> auto
+    {
+      // TODO: check all rates are (not strictly) positive
+      
+      double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate);
+      double const leave = sumrates==0.0 ? 0.0 : ((1.0 - std::exp(-sumrates)) / sumrates);
+      
+      double const carry_prop = leave == 0.0 ? 0.0 : (leave * carry_rate);
+      std::array<double, s_ntake> take_prop {};
+      if (leave>0)
+      {
+        for (int i=0; i<s_ntake; ++i)
+        {
+          take_prop[i] = leave * take_rate[i];
+        }        
+      }
+
+      return process_prop(carry_prop, take_prop);
+        
+    }
+
+    template<size_t s_ntake>
+    [[nodiscard]] auto process_prop(double const carry_prop, std::array<double, s_ntake> const& take_prop)
+      -> auto
+    {
+      // TODO: check all props are >=0 and sum to <=1
+      
+        
+      std::array<double, s_ntake> tt = {};
+      
+      // TODO: make this a concrete type with bounds-checked accessor for take  
+      struct
+      {
+        double carry;
+        std::array<double, s_ntake> take;
+      } rv { 0.5, tt };
+        
+      return rv;
+    }
 
     [[nodiscard]] auto take_prop(double const prop) noexcept(!s_cts.debug)
       -> double

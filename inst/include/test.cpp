@@ -1,39 +1,19 @@
-// clang -std=c++20 -Wall -pedantic -o test test.cpp
+// clang++ -std=c++20 -Wall -pedantic -o test test.cpp
 
 #include "blofeld/Compartment.h"
-
-/*class Bridge
-{
-public:
-  virtual void stop(std::string_view const msg) = 0;
-  virtual void print(std::string_view const msg) = 0;
-};
-*/
-
-class BridgeCpp //: Bridge
-{
-public:
-  void stop(std::string_view const msg) //override
-  {
-    throw(msg);
-  };
-  void print(std::string_view const msg) //override
-  {
-    std::cout << msg;
-  };
-};
+#include "blofeld/utilities/BridgeCpp.h"
 
 
 int main(int argc, char *argv[])
 {
   
-  BridgeCpp bridge;
+  blofeld::BridgeMT19937 bridge;
   
   struct CompileTimeSettings
   {
     bool const debug = true;
     double const tol = 0.00001;
-    typedef BridgeCpp Bridge;
+    typedef blofeld::BridgeMT19937 Bridge;
   };
   
   constexpr CompileTimeSettings cts = {
@@ -48,6 +28,9 @@ int main(int argc, char *argv[])
   
   blofeld::Compartment<cts, mt, ct> comp(bridge, 10);
   auto vv = comp.ptr();
-   
+  
+  auto [carry, take] = comp.process_rate(0.4, std::array{ 0.1, 0.1, 0.1});
+  std::cout << carry << ", " << take.size() << std::endl;
+  
   return 0;
 }
