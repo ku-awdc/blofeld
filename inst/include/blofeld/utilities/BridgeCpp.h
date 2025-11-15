@@ -23,7 +23,12 @@ namespace blofeld
     }
 
     // Specialised constructor with default value for MT19937 initialisation
-    explicit BridgeCpp(T_rng rng = [](){ std::random_device r; std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()}; T_rng rng(seed); return rng; }())
+    explicit BridgeCpp(T_rng rng = [](){
+      std::random_device r;
+      std::seed_seq seed{r(), r(), r(), r(), r(), r(), r(), r()};
+      T_rng rng(seed);
+      return rng;
+    }())
       requires(std::is_same_v<T_rng, std::mt19937>)
       : m_rng(std::move(rng))
     {
@@ -38,21 +43,53 @@ namespace blofeld
     {
       std::cout << msg;
     };
+    
+    void println(std::string_view const msg)
+    {
+      std::cout << msg << "\n";
+    };
+
+    template<typename T>
+    void println(T const msg)
+    {
+      std::cout << msg << "\n";
+    };
+    
+    auto rbinom(int const n, double const p)
+      -> int
+    {
+      // TODO: check n and p
+      
+      if(n==0) return(0);
+      std::binomial_distribution<> d(n, p);
+      return d(m_rng);
+    }
   
     template<size_t s_size>
-    auto rmultinom(int total, std::array<double, s_size> const& probs)
+    auto rmultinom(int n, std::array<double, s_size> const& prob)
       -> std::array<int, s_size+1>
     {
+      // TODO: check sum(prob)<=1
+      
       std::array<int, s_size+1> rv{};
-      rv[0] = total;
+      int sum = 0;
+      double pp = 1.0;
+      for (auto i = 0; i < s_size; ++i)
+      {
+        int const tt = rbinom(n-sum, prob[i] / pp);
+        rv[i+1] = tt;
+        pp -= prob[i];
+        sum += tt;
+      }
+      rv[0] = n-sum;
       return rv;
     };
   
     template<>
-    auto rmultinom<1>(int total, std::array<double, 1> const& probs)
-      -> std::array<int, 2>
+    auto rmultinom<0>(int total, std::array<double, 0> const& probs)
+      -> std::array<int, 1>
     {
-      std::array<int, 2> rv{ total, 0 };
+      std::array<int, 1> rv{ total };
       return rv;
     };
   

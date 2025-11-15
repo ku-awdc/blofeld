@@ -9,6 +9,12 @@ int main(int argc, char *argv[])
   
   blofeld::BridgeMT19937 bridge;
   
+  double const bn = bridge.rbinom(10, 0.5);
+  bridge.println(bn);
+  
+  std::array mn = bridge.rmultinom(100000, std::array{0.1, 0.2, 0.3});
+  std::cout << mn.size() << ": " << mn[0] << ", " << mn[1] << ", " << mn[2] << ", " << mn[3] << std::endl;
+  
   struct CompileTimeSettings
   {
     bool const debug = true;
