@@ -3,28 +3,32 @@
 #include "blofeld/Compartment.h"
 #include "blofeld/utilities/BridgeCpp.h"
 
+#include <format>
 
 int main(int argc, char *argv[])
 {
-  
-  blofeld::BridgeMT19937 bridge;
-  
-  double const bn = bridge.rbinom(10, 0.5);
-  bridge.println(bn);
-  
-  std::array mn = bridge.rmultinom(100000, std::array{0.1, 0.2, 0.3});
-  std::cout << mn.size() << ": " << mn[0] << ", " << mn[1] << ", " << mn[2] << ", " << mn[3] << std::endl;
-  
+
   struct CompileTimeSettings
   {
     bool const debug = true;
     double const tol = 0.00001;
-    typedef blofeld::BridgeMT19937 Bridge;
+    using Bridge = blofeld::BridgeMT19937;
   };
   
   constexpr CompileTimeSettings cts = {
     .debug = true
   };
+  
+  using Bridge = CompileTimeSettings::Bridge;
+  Bridge bridge;
+  
+  double const bn = bridge.rbinom(10, 0.5);
+  bridge.println("Binom: {}", bn);
+  
+  std::array mn = bridge.rmultinom(100000, std::array{0.1, 0.2, 0.3});
+  bridge.println("Some stuff; {}; others", mn);
+
+  bridge.print( "hi{}", 2 );
   
   constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
   constexpr blofeld::CompType ct = { 
@@ -32,11 +36,12 @@ int main(int argc, char *argv[])
     .n = 10
   };
   
+  
   blofeld::Compartment<cts, mt, ct> comp(bridge, 10);
   auto vv = comp.ptr();
   
   auto [carry, take] = comp.process_rate(0.4, std::array{ 0.1, 0.1, 0.1});
-  std::cout << carry << ", " << take.size() << std::endl;
+  bridge.println("{} - {}", carry, take.size());
   
   return 0;
 }

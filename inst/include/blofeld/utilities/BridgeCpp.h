@@ -33,28 +33,55 @@ namespace blofeld
       : m_rng(std::move(rng))
     {
     }
-  
-    void stop(std::string_view const msg)
+    
+    template<typename... Args>
+    void print(std::format_string<Args...> const fmt, Args&&... args)
     {
-      throw(msg);
-    };
-  
-    void print(std::string_view const msg)
+      std::cout << std::vformat(fmt.get(), std::make_format_args(args...));
+    };    
+
+    template<typename... Args>
+    void println(std::format_string<Args...> const fmt, Args&&... args)
     {
-      std::cout << msg;
+      std::cout << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
+    };    
+  
+    template<typename... Args>
+    void stop(std::format_string<Args...> const fmt, Args&&... args)
+    {
+      throw(std::vformat(fmt.get(), std::make_format_args(args...)));
     };
     
-    void println(std::string_view const msg)
+    template<typename... Args>
+    void warning(std::format_string<Args...> const fmt, Args&&... args)
     {
-      std::cout << msg << "\n";
+      std::cout << "Warning:\n" << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
+    };
+    
+    /*
+    template<typename... Args>
+    void print(Args... args)
+    {
+      std::ostringstream ss;
+      using namespace std::literals;
+      stream(ss, " "sv, args...);
+      std::cout << ss.str();
     };
 
-    template<typename T>
-    void println(T const msg)
+    template<typename... Args>
+    void print(std::initializer_list<std::format_string<Args...>>)
     {
-      std::cout << msg << "\n";
+      std::cout << "ilist";
     };
     
+    template<typename... Args>
+    void println(Args... args)
+    {
+      print(args...);
+      std::cout << std::endl;
+    };
+    */
+
     auto rbinom(int const n, double const p)
       -> int
     {
