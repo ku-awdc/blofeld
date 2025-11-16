@@ -3,6 +3,8 @@
 #ifndef BLOFELD_CONTAINER_FORMATTER_H
 #define BLOFELD_CONTAINER_FORMATTER_H
 
+#include "../Compartment.h"
+
 namespace blofeld
 {
 
@@ -40,5 +42,9 @@ class std::formatter<std::vector<T>> : public blofeld::ContainerFormatter<std::v
 // Formatter for std::array:
 template<typename T, size_t S>
 class std::formatter<std::array<T,S>> : public blofeld::ContainerFormatter<std::array<T,S>> {};
+
+// Formatter for blofeld::Compartment:
+template<auto s_cts, blofeld::ModelType s_mtype, blofeld::CompType s_ctype>
+class std::formatter<blofeld::Compartment<s_cts, s_mtype, s_ctype>> : public blofeld::ContainerFormatter<blofeld::Compartment<s_cts, s_mtype, s_ctype>> {};
 
 #endif // BLOFELD_CONTAINER_FORMATTER_H

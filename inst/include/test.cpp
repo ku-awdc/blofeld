@@ -35,15 +35,31 @@ int main(int argc, char *argv[])
   constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
   constexpr blofeld::CompType ct = { 
     .compcont = blofeld::CompCont::array,
-    .n = 10
+    .n = 3
   };
   
   
-  blofeld::Compartment<cts, mt, ct> comp(bridge, 10);
-  auto vv = comp.ptr();
+  blofeld::Compartment<cts, mt, ct> comp(bridge, 3);
+  int ss = 100;
+  comp.set_sum(ss);
+  bridge.println("{}", comp.ptr());
+  bridge.println("{}", comp);
   
-  auto [carry, take] = comp.process_rate(0.4, std::array{ 0.1, 0.1, 0.1});
-  bridge.println("{} - {}", carry, take.size());
+  int carried = 0;
+  int taken = 0;
+  for(int i=0; i<20; ++i)
+  {
+    auto [carry, take] = comp.process_rate(0.1, std::array{ 0.01, 0.02});
+    carried += carry;
+    taken += std::accumulate(take.begin(), take.end(), 0);
+    comp.apply_changes();
+    if(comp.get_sum()+carried+taken != ss)
+    {
+      bridge.println("Iter: {} - {},{}", comp, carried, taken);
+      throw("cock");
+    }
+  }
+  bridge.println("{} + {}", comp.get_sum(), carried+taken);
   
   return 0;
 }

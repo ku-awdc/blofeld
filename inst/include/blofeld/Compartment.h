@@ -60,9 +60,21 @@ namespace blofeld
         void
       >
     >;
+
+    using ChangesType = std::conditional_t<
+      s_ctype.compcont == CompCont::array,
+      std::array<ValueType, s_ctype.n+1>,
+      std::conditional_t<
+        s_ctype.compcont == CompCont::vector,
+        std::vector<ValueType>,
+        void
+      >
+    >;
+        
+    static constexpr ValueType s_zero = static_cast<ValueType>(0);
       
     ContainerType m_values { };
-    ContainerType m_changes { };
+    ChangesType m_changes { };
   
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
@@ -92,6 +104,7 @@ namespace blofeld
         static_assert(false, "Unrecognised ModelType");
       }
       
+      static_assert(s_ctype.compcont == CompCont::array, "Only array is implemented");
       // TODO: validate container type
     }
 
@@ -112,7 +125,40 @@ namespace blofeld
       set_sum(value);
       check_compartments();
     }
+    
+    auto size() const
+      -> std::size_t
+    {
+      return m_ncomps;
+    }
+    
+    auto begin() noexcept
+    {
+      return m_values.begin();
+    }
+    auto end() noexcept
+    {
+      return m_values.end();
+    }
 
+    auto begin() const noexcept
+    {
+      return m_values.begin();
+    }
+    auto end() const noexcept
+    {
+      return m_values.end();
+    }
+    
+    auto cbegin() const noexcept
+    {
+      return m_values.cbegin();
+    }
+    auto cend() const noexcept
+    {
+      return m_values.end();
+    }
+    
     auto apply_changes()
       noexcept(!s_cts.debug)
       -> void
@@ -120,63 +166,45 @@ namespace blofeld
       for(int i=0; i<s_ctype.n; ++i)
       {
         m_values[i] += m_changes[i];
-        m_changes[i] = 0.0;
-      
-        // Zap occasional small negative values (no adjustment to m_Z, so it can't happen too often):
-        if(m_values[i] < 0.0 && std::abs(m_values[i]) < s_cts.tol){        
-          m_values[i] = 0.0;
+        m_changes[i] = s_zero;
+    
+        if constexpr (s_mtype==ModelType::deterministic)
+        {
+          // Zap occasional small negative values (no adjustment to m_Z, so it can't happen too often):
+          if(m_values[i] < s_zero && std::abs(m_values[i]) < s_cts.tol){        
+            m_values[i] = s_zero;
+          }
         }
-      
+        
         if constexpr (s_cts.debug){
-          if(m_values[i] < 0.0){
-            //m_bridge.cout << m_values[i] << " < 0.0\n";
+          if(m_values[i] < s_zero)
+          {
             m_bridge.stop("Applying changes caused a negative value");
           }
-        }      
+        }
       }
+      
+      // m_changes has an extra value:
+      m_changes[m_changes.size()-1] = s_zero;
     }
 
     [[nodiscard]] auto get_sum()
       const noexcept(!s_cts.debug)
       -> ValueType
     {
-      double const rv = std::accumulate(m_values.begin(), m_values.end(), static_cast<ValueType>(0.0));
+      double const rv = std::accumulate(m_values.begin(), m_values.end(), s_zero);
       return rv;
     }
 
-    auto set_sum(double const value) noexcept(!s_cts.debug)
+    auto set_sum(ValueType const value) noexcept(!s_cts.debug)
       -> void
     {
       // TOODO: switch to distribute balanced or all in first box
       for(auto& val : m_values){
         // val = value / static_cast<double>(s_ctype.n);
-        val = static_cast<ValueType>(0.0);
+        val = s_zero;
       }
       m_values[0] = value;
-    }
-
-    /*
-    auto set_rate(double const rate, std::array<double, s_ndests> const& proportions,
-                  std::array<double, s_ndests> const& proportions_final)
-      noexcept(!s_cts.debug)
-      -> void
-    {
-
-    }
-
-    auto set_rate(double const rate, std::array<double, s_ndests> const& proportions) noexcept(!s_cts.debug)
-      -> void
-    {
-      set_rate(rate, proportions, proportions);
-    }
-    */
-
-    [[nodiscard]] auto take_rate(double const rate, double const d_time) noexcept(!s_cts.debug)
-      -> double
-    {
-      double const prop = 1.0 - std::exp(-rate * s_ctype.n * d_time);
-      double const rv = take_prop(prop);
-      return rv;
     }
 
     /*
@@ -198,6 +226,7 @@ namespace blofeld
       return number;
     }
     */
+    
     template<size_t s_ntake>
     [[nodiscard]] auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
       -> auto
@@ -226,16 +255,73 @@ namespace blofeld
       -> auto
     {
       // TODO: check all props are >=0 and sum to <=1
+      // TODO: implement take_prop
       
+      std::array<ValueType, s_ntake> taken {};
+      
+      if constexpr (s_mtype==ModelType::deterministic)
+      {
+        for (int i=0; i<s_ctype.n; ++i)
+        {
+          {
+            double const tt = m_values[i] * carry_prop;
+            m_changes[i] -= tt;
+            m_changes[i+1] += tt;
+          }
+          for (int t=0; t<s_ntake; ++t)
+          {
+            double const tt = m_values[i] * take_prop[t];
+            m_changes[i] -= tt;
+            taken[t] += tt;
+          }
+        }
         
-      std::array<double, s_ntake> tt = {};
+      } else if constexpr (s_mtype==ModelType::stochastic)
+      {
+        
+        std::array<double, s_ntake+1> probs;
+        probs[0] = carry_prop;
+        for (int i=0; i<s_ntake; ++i)
+        {
+          probs[i+1] = take_prop[i];
+        }
+        
+        for (int i=0; i<s_ctype.n; ++i)
+        {
+          std::array<ValueType, s_ntake+2> const
+            cc = m_bridge.rmultinom(m_values[i], probs);
+          static_assert(cc.size() == taken.size()+2);
+          
+          m_changes[i] -= (m_values[i]-cc[0]);
+          m_changes[i+1] += cc[1];          
+          for (int t=0; t<taken.size(); ++t)
+          {
+            taken[t] += cc[t+2];
+          }
+        }
+        
+      } else
+      {
+        static_assert(false, "Unrecognised ModelType in apply_changes");
+      }
+      
+      if constexpr (s_cts.debug){
+        for (auto val : m_values)
+        {
+          if(val < static_cast<ValueType>(0))
+          {
+            m_bridge.stop("Applying changes caused a negative value");
+          }
+        }
+      }      
+      
       
       // TODO: make this a concrete type with bounds-checked accessor for take  
       struct
       {
-        double carry;
-        std::array<double, s_ntake> take;
-      } rv { 0.5, tt };
+        ValueType carry;
+        std::array<ValueType, s_ntake> take;
+      } rv { m_changes[m_changes.size()-1], taken };
         
       return rv;
     }
