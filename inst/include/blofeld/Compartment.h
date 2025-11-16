@@ -315,7 +315,6 @@ namespace blofeld
         }
       }      
       
-      
       // TODO: make this a concrete type with bounds-checked accessor for take  
       struct
       {
@@ -326,6 +325,7 @@ namespace blofeld
       return rv;
     }
 
+    /*
     [[nodiscard]] auto take_prop(double const prop) noexcept(!s_cts.debug)
       -> double
     {
@@ -357,6 +357,7 @@ namespace blofeld
       }    
       return carry;
     }
+    */
 
     auto insert_value_start(double const value)
       noexcept(!s_cts.debug)
