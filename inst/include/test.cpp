@@ -2,8 +2,7 @@
 
 #include "blofeld/Compartment.h"
 #include "blofeld/utilities/BridgeCpp.h"
-
-#include <format>
+#include "blofeld/utilities/ContainerFormatter.h"
 
 int main(int argc, char *argv[])
 {
@@ -29,6 +28,7 @@ int main(int argc, char *argv[])
   bridge.println("Some stuff; {}; others", mn);
 
   bridge.print( "hi{}", 2 );
+  bridge.print( "hi{}", std::vector{1} );
   
   constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
   constexpr blofeld::CompType ct = { 
