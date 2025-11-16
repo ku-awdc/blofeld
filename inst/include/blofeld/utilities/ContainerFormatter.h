@@ -3,7 +3,7 @@
 #ifndef BLOFELD_CONTAINER_FORMATTER_H
 #define BLOFELD_CONTAINER_FORMATTER_H
 
-#include "../Compartment.h"
+#include "../groups/Compartment.h"
 
 namespace blofeld
 {

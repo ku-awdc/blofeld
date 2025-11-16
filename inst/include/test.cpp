@@ -1,6 +1,8 @@
 // clang++ -std=c++20 -Wall -pedantic -o test test.cpp
 
-#include "blofeld/Compartment.h"
+// TODO: sort out include order
+
+#include "blofeld/groups/Compartment.h"
 #include "blofeld/utilities/BridgeCpp.h"
 #include "blofeld/utilities/ContainerFormatter.h"
 
@@ -35,11 +37,10 @@ int main(int argc, char *argv[])
   constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
   constexpr blofeld::CompType ct = { 
     .compcont = blofeld::CompCont::array,
-    .n = 3
-  };
+    .n = 2
+  };  
   
-  
-  blofeld::Compartment<cts, mt, ct> comp(bridge, 3);
+  blofeld::Compartment<cts, mt, ct> comp(bridge, ct.n);
   int ss = 100;
   comp.set_sum(ss);
   bridge.println("{}", comp.ptr());

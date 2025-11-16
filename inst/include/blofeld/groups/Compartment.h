@@ -40,6 +40,8 @@ namespace blofeld
   {
   private:
     
+    static_assert(s_ctype.n > 0, "Invalid .n in CompType (must be >0)");
+    
     using ValueType = std::conditional_t<
       s_mtype == ModelType::deterministic,
       double,
@@ -84,6 +86,8 @@ namespace blofeld
     auto check_compartments() const noexcept(!s_cts.debug)
       -> void
     {
+      static_assert(s_ctype.n > 0, "Invalid .n in CompType");
+      
       if constexpr (!s_cts.debug && s_ctype.n!=0U)
       {
         if (m_ncomps != s_ctype.n) m_bridge.stop("Non-matching number of sub-compartments");
@@ -106,6 +110,10 @@ namespace blofeld
       
       static_assert(s_ctype.compcont == CompCont::array, "Only array is implemented");
       // TODO: validate container type
+      if(m_ncomps!=s_ctype.n)
+      {
+        m_bridge.stop("Number of compartments does not match between constructor and template parameter");  
+      };
     }
 
     Compartment() = delete;
@@ -129,7 +137,7 @@ namespace blofeld
     auto size() const
       -> std::size_t
     {
-      return m_ncomps;
+      return s_ctype.n;
     }
     
     auto begin() noexcept
@@ -196,15 +204,40 @@ namespace blofeld
       return rv;
     }
 
-    auto set_sum(ValueType const value) noexcept(!s_cts.debug)
+    auto set_sum(ValueType const value, bool const distribute = true) noexcept(!s_cts.debug)
       -> void
     {
-      // TOODO: switch to distribute balanced or all in first box
-      for(auto& val : m_values){
-        // val = value / static_cast<double>(s_ctype.n);
-        val = s_zero;
+      if (distribute)
+      {
+        if constexpr (s_mtype==ModelType::deterministic)
+        {
+          for(auto& val : m_values){
+            val = value / s_ctype.n;
+          }
+        } else if constexpr (s_mtype==ModelType::stochastic)
+        {
+          std::array<double, s_ctype.n-1> probs {};
+          for (auto& pp : probs)
+          {
+            pp = 1.0 / s_ctype.n;
+          }
+          std::array<ValueType, s_ctype.n> const
+            inits = m_bridge.rmultinom(value, probs);
+          for (int i=0; i<s_ctype.n; ++i)
+          {
+            m_values[i] = inits[i];
+          }
+        } else
+        {
+          static_assert(false, "Unrecognised ModelType in set_sum");
+        }
+        
+      } else {
+        for(auto& val : m_values){
+          val = s_zero;
+        }
+        m_values[0] = value;
       }
-      m_values[0] = value;
     }
 
     /*
@@ -359,7 +392,7 @@ namespace blofeld
     }
     */
 
-    auto insert_value_start(double const value)
+    auto insert_value_start(ValueType const value)
       noexcept(!s_cts.debug)
       -> void
     {
@@ -382,7 +415,7 @@ namespace blofeld
       return m_values;
     }
 
-    // Note: unusual + overloads return double
+    // Note: unusual + overloads return ValueType
     [[nodiscard]] auto operator+(ValueType const sum)
       const noexcept(!s_cts.debug)
         -> ValueType

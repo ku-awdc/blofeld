@@ -54,13 +54,14 @@ namespace blofeld
     template<typename... Args>
     void stop(std::format_string<Args...> const fmt, Args&&... args)
     {
-      throw(std::vformat(fmt.get(), std::make_format_args(args...)));
+      std::cout << "ERROR: " << std::vformat(fmt.get(), std::make_format_args(args...)) << std::endl;
+      throw(1);
     };
     
     template<typename... Args>
     void warning(std::format_string<Args...> const fmt, Args&&... args)
     {
-      std::cout << "Warning:\n" << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
+      std::cout << "Warning: " << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
     };
     
     /*
