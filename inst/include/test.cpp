@@ -28,7 +28,9 @@ int main(int argc, char *argv[])
   bridge.println("Some stuff; {}; others", mn);
 
   bridge.print( "hi{}", 2 );
-  bridge.print( "hi{}", std::vector{1} );
+  bridge.println();
+  bridge.println( "A vector: {}", std::vector{1} );
+  bridge.println( "An array: {}", std::array<int,0>{} );
   
   constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
   constexpr blofeld::CompType ct = { 

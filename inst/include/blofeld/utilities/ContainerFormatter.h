@@ -20,11 +20,14 @@ namespace blofeld
     {
       auto out = context.out();
       // TODO: show container size not contents if e.g. C.size()>10
-      out = std::format_to(out, "ctr:{}[", ctr.size());
+      //out = std::format_to(out, "[s:{},", ctr.size());
+      out = std::format_to(out, "[");
       for (auto vv : ctr) {
-        out = std::format_to(out, "{}, ", vv);
+        out = std::format_to(out, "{},", vv);
       }
-      return std::format_to(out, ":{}]", std::accumulate(ctr.begin(), ctr.end(), static_cast<C::value_type>(0)));
+      // out = std::format_to(out, "t:{}]", std::accumulate(ctr.begin(), ctr.end(), static_cast<C::value_type>(0)));
+      std::format_to(out, "s:{}]", ctr.size());
+      return out;
     }
   };
 

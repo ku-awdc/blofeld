@@ -44,7 +44,12 @@ namespace blofeld
     void println(std::format_string<Args...> const fmt, Args&&... args)
     {
       std::cout << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
-    };    
+    };
+    
+    void println()
+    {
+      std::cout << "\n";
+    }
   
     template<typename... Args>
     void stop(std::format_string<Args...> const fmt, Args&&... args)
