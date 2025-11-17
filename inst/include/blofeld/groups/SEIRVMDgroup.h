@@ -1,17 +1,15 @@
-#ifndef BLOFELD_COMP_GROUP_H
-#define BLOFELD_COMP_GROUP_H
+#ifndef BLOFELD_SEIRVMD_GROUP_H
+#define BLOFELD_SEIRVMD_GROUP_H
 
-#include <array>
-#include <string_view>
-#include <Rcpp.h>
-
+#include "Group.h"
 #include "Compartment.h"
 
 namespace blofeld
 {
 
-  template <auto CTS, unsigned int s_nV, unsigned int s_nI, unsigned int s_nN, unsigned int s_nR, unsigned int s_nA>
-  class CompGroup{
+  template <auto s_cts, unsigned int s_nV, unsigned int s_nI, unsigned int s_nN, unsigned int s_nR, unsigned int s_nA>
+  class SEIRVMDgroup : public Group
+  {
   private:
 
     static constexpr unsigned int s_nS = 1U;
@@ -667,4 +665,4 @@ namespace blofeld
 
 } // blofeld
 
-#endif // BLOFELD_COMP_GROUP_H
+#endif // BLOFELD_SEIRVMD_GROUP_H
