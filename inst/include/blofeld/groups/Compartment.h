@@ -51,6 +51,20 @@ namespace blofeld
         void
       >
     >;
+    
+    struct NoChecking
+    {
+    };
+    struct Checking
+    {
+      ValueType balance = s_zero;
+    };
+    using CheckType = std::conditional_t<
+      s_cts.debug,
+      Checking,
+      NoChecking
+    >;
+    CheckType m_check;
         
     // TODO: other container types
     using ContainerType = std::conditional_t<
