@@ -6,6 +6,8 @@
 #include <iostream>
 #include <typeinfo>
 
+#include "ModelCompTypes.h"
+
 // 
 
 // TODO: should take/carry be immediate?  So only insert is done on delay?
@@ -13,27 +15,6 @@
 
 namespace blofeld
 {
-  enum class ModelType
-  {
-    deterministic,  // Uses double and simple maths
-    stochastic      // Uses int and random sampling
-  };
-
-  enum class CompCont
-  {
-    disabled,       // Removed - compiles to nothing
-    array,          // Fixed size (including 1, but not zero)
-    inplace_vector, // Emulation of c++26 inplace_vector i.e. stack-based, dynamic up to max size
-    vector,         // Heap-based, dynamic - s_ctype.n is ignored
-    balancing       // Fixed size of 1 and allows negative values (for birth/death) - s_ctype.n is ignored
-  };
-
-  // Literal type
-  struct CompType
-  {
-    CompCont const compcont;
-    size_t const n;
-  };
   
   template <auto s_cts, ModelType s_mtype, CompType s_ctype>
   class Compartment
@@ -95,7 +76,8 @@ namespace blofeld
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
   
-    const int m_ncomps;
+    // TODO: only constexpr for certain container types
+    static constexpr int m_ncomps = s_ctype.n;
 
     auto check_compartments() const noexcept(!s_cts.debug)
       -> void
@@ -133,15 +115,15 @@ namespace blofeld
     Compartment() = delete;
   
   public:
-    Compartment(Bridge& bridge, int const ncomps) noexcept(!s_cts.debug)
-      : m_bridge(bridge), m_ncomps(ncomps)
+    explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
+      : m_bridge(bridge)
     {
       validate();
       check_compartments();
     }
 
-    Compartment(Bridge& bridge, int const ncomps, double const value) noexcept(!s_cts.debug)
-      : m_bridge(bridge), m_ncomps(ncomps)
+    Compartment(Bridge& bridge, double const value) noexcept(!s_cts.debug)
+      : m_bridge(bridge)
     {
       validate();
       set_sum(value);
@@ -273,6 +255,15 @@ namespace blofeld
       return number;
     }
     */
+
+    // Overload to allow a single double value for take_rate
+    /*
+    [[nodiscard]] auto process_rate(double const carry_rate, double const take_rate)
+      -> auto
+    {
+      return process_rate<1>(carry_rate, std::array<double,1> { take_rate });        
+    }
+    */
     
     template<size_t s_ntake>
     [[nodiscard]] auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
@@ -350,7 +341,7 @@ namespace blofeld
       } else
       {
         static_assert(false, "Unrecognised ModelType in apply_changes");
-      }
+      }      
       
       if constexpr (s_cts.debug){
         for (auto val : m_values)

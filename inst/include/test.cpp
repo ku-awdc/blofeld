@@ -3,6 +3,8 @@
 // TODO: sort out include order
 
 #include "blofeld/groups/Compartment.h"
+#include "blofeld/groups/SEIDRVMZgroup.h"
+
 #include "blofeld/utilities/BridgeCpp.h"
 #include "blofeld/utilities/ContainerFormatter.h"
 
@@ -40,7 +42,7 @@ int main(int argc, char *argv[])
     .n = 2
   };  
   
-  blofeld::Compartment<cts, mt, ct> comp(bridge, ct.n);
+  blofeld::Compartment<cts, mt, ct> comp(bridge);
   int ss = 100;
   comp.set_sum(ss);
   bridge.println("{}", comp.ptr());
@@ -61,6 +63,23 @@ int main(int argc, char *argv[])
     }
   }
   bridge.println("{} + {}", comp.get_sum(), carried+taken);
+  
+  blofeld::SEIDRVMZgroup<cts, mt,
+    ct, // S
+    ct, // E
+    ct, // I
+    ct, // D
+    ct, // R
+    ct, // V
+    ct, // M/C
+    ct  // Z
+  > group(bridge);
+  
+  
+  for(int i=0; i<20; ++i)
+  {
+    group.update();
+  }
   
   return 0;
 }

@@ -1,35 +1,206 @@
-#ifndef BLOFELD_SEIRVMD_GROUP_H
-#define BLOFELD_SEIRVMD_GROUP_H
+#ifndef BLOFELD_SEIDRVMZ_GROUP_H
+#define BLOFELD_SEIDRVMZ_GROUP_H
 
 #include "Group.h"
+#include "ModelCompTypes.h"
 #include "Compartment.h"
 
 namespace blofeld
 {
 
-  template <auto s_cts, unsigned int s_nV, unsigned int s_nI, unsigned int s_nN, unsigned int s_nR, unsigned int s_nA>
-  class SEIRVMDgroup : public Group
+  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
+  class SEIDRVMZgroup : public Group<s_cts>
   {
   private:
 
-    static constexpr unsigned int s_nS = 1U;
-    static constexpr unsigned int s_nC = 1U;
+    // TODO: make this a static consteval member of ModelType for re-use here and Compartment?
+    using t_Value = std::conditional_t<
+      s_mtype == ModelType::deterministic,
+      double,
+      std::conditional_t<
+        s_mtype == ModelType::stochastic,
+        int,
+        void
+      >
+    >;
 
-    Compartment<CTS, s_nS> m_S;
-    Compartment<CTS, s_nV> m_V;
-    Compartment<CTS, s_nI> m_I;
-    Compartment<CTS, s_nN> m_N;
-    Compartment<CTS, s_nR> m_R;
+    using Bridge = decltype(s_cts)::Bridge;
+    Bridge& m_bridge;
+    
+    Compartment<s_cts, s_mtype, s_ctp_S> m_S;
+    Compartment<s_cts, s_mtype, s_ctp_E> m_E;
+    Compartment<s_cts, s_mtype, s_ctp_I> m_I;
+    Compartment<s_cts, s_mtype, s_ctp_D> m_D;
+    Compartment<s_cts, s_mtype, s_ctp_R> m_R;
+    Compartment<s_cts, s_mtype, s_ctp_V> m_V;
+    Compartment<s_cts, s_mtype, s_ctp_M> m_M;
+    Compartment<s_cts, s_mtype, s_ctp_Z> m_Z;
+    
+    static constexpr bool s_have_death = s_ctp_Z.is_active();
+    static constexpr bool s_have_vacc = s_ctp_V.is_active();
+    static constexpr bool s_have_mort = s_ctp_M.is_active();
+    
+    // Do we have death?
+    static constexpr size_t s_psd = [](){
+      if constexpr (s_have_death) {
+        return 1;
+      } else {
+        return 0;
+      }
+    }();
+    
+    // The expected array size from process_rate for non-EID compartments:
+    static constexpr size_t s_psv = [](){
+      if constexpr (s_have_vacc) {
+        return s_psd+1;
+      } else {
+        return s_psd;
+      }
+    }();
 
-    Compartment<CTS, s_nA> m_Af;
-    Compartment<CTS, s_nC> m_Cf;
+    // The expected array size from process_rate for EID compartments:
+    static constexpr size_t s_psm = [](){
+      if constexpr (s_have_mort) {
+        return s_psd+1;
+      } else {
+        return s_psd;
+      }
+    }();
 
-    Compartment<CTS, s_nS> m_Sf;
-    Compartment<CTS, s_nV> m_Vf;
-    Compartment<CTS, s_nI> m_If;
-    Compartment<CTS, s_nN> m_Nf;
-    Compartment<CTS, s_nR> m_Rf;
+    // Death is always first, then vaccine (but for R it restarts R, not goes to V)
+    std::array<double,s_psv> m_deathvacc_S_rate {};
+    std::array<double,s_psv> m_deathvacc_R_rate {};
+    std::array<double,s_psv> m_deathvacc_V_rate {};
+    
+    // Death is always first, then mortality/cull:
+    std::array<double,s_ctp_E.is_active() ? s_psm : 0> m_deathmort_E_rate {};
+    std::array<double,s_ctp_I.is_active() ? s_psm : 0> m_deathmort_I_rate {};
+    std::array<double,s_ctp_D.is_active() ? s_psm : 0> m_deathmort_D_rate {};
 
+  public:
+    
+    SEIDRVMZgroup(Bridge& bridge)
+      : m_bridge(bridge), m_S(bridge), m_E(bridge), m_I(bridge), m_D(bridge),
+        m_R(bridge), m_V(bridge), m_M(bridge), m_Z(bridge)
+    {
+      // TODO: checks that we always have an S
+      // TODO: check that Z is a balancing type with n=0 or n=1, and none of the others are balancing
+      
+      m_S.insert_value_start(10);
+      m_I.insert_value_start(1);
+      m_Z.insert_value_start(11);
+    }
+    
+    void update(int const n_steps = 1)
+    {
+      double const inf_rate = 0.1;
+      
+      double const m_incub_rate = 0.1;
+      double const m_clin_rate = 0.1;
+      double const m_rec_rate = 0.1;
+      double const m_rev_rate = 0.1;
+      double const m_wane_rate = 0.1;
+      
+      // We always have S:
+      auto const S_carry = [&](){
+        auto const [carry, take] = m_S.process_rate(inf_rate, m_deathvacc_S_rate);
+        if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+        if constexpr (s_have_vacc) m_V.insert_value_start(take[s_have_death ? 1 : 0]);
+        return carry;
+      }();
+
+      // We don't always have E:
+      auto const E_carry = [&](auto const input){
+        if constexpr (s_ctp_E.is_active()) {        
+          m_E.insert_value_start(input);
+          auto const [carry, take] = m_E.process_rate(m_incub_rate, m_deathmort_E_rate);
+          if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+          if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
+          return carry;
+        } else {
+          return input;
+        }
+      }(S_carry);
+
+      // We don't always have I:
+      auto const I_carry = [&](auto const input){
+        if constexpr (s_ctp_I.is_active()) {        
+          m_I.insert_value_start(input);
+          auto const [carry, take] = m_I.process_rate(m_clin_rate, m_deathmort_I_rate);
+          if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+          if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
+          return carry;        
+        } else {
+          return input;
+        }
+      }(E_carry);
+
+      // We don't always have D:
+      auto const D_carry = [&](auto const input){
+        if constexpr (s_ctp_D.is_active()) {        
+          m_D.insert_value_start(input);
+          auto const [carry, take] = m_D.process_rate(m_rec_rate, m_deathmort_D_rate);
+          if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+          if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
+          return carry;        
+        } else {
+          return input;
+        }
+      }(I_carry);
+
+      // We don't always have R:
+      auto const R_carry = [&](auto const input){
+        if constexpr (s_ctp_R.is_active()) {        
+          m_R.insert_value_start(input);
+          auto const [carry, take] = m_R.process_rate(m_rev_rate, m_deathvacc_R_rate);
+          if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+          // Note: deliberately restart R rather than go to V for vaccine effect:
+          if constexpr (s_have_vacc) m_R.insert_value_start(take[s_have_death ? 1 : 0]);
+          return carry;        
+        } else {
+          return input;
+        }
+      }(D_carry);
+
+      auto const V_carry = [&](){
+        if constexpr (s_ctp_V.is_active()) {        
+          auto const [carry, take] = m_V.process_rate(m_wane_rate, m_deathvacc_V_rate);
+          if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+          // Note: restart V if re-vaccinated:
+          if constexpr (s_have_vacc) m_V.insert_value_start(take[s_have_death ? 1 : 0]);
+          return carry;        
+        } else {
+          return static_cast<t_Value>(0.0);
+        }
+      }();
+      
+      m_S.insert_value_start(V_carry + R_carry);
+        
+      m_S.apply_changes();
+      if constexpr (s_ctp_E.is_active()) m_E.apply_changes();
+      if constexpr (s_ctp_I.is_active()) m_I.apply_changes();
+      if constexpr (s_ctp_D.is_active()) m_D.apply_changes();
+      if constexpr (s_ctp_R.is_active()) m_R.apply_changes();
+      if constexpr (s_ctp_V.is_active()) m_V.apply_changes();
+      if constexpr (s_ctp_M.is_active()) m_M.apply_changes();
+      m_Z.apply_changes();
+      
+      if constexpr (s_cts.debug) {
+        auto const total = m_S.get_sum() + m_E.get_sum() + m_I.get_sum() + m_D.get_sum() + m_R.get_sum() + m_V.get_sum() + m_M.get_sum();
+        m_bridge.println("S = {}; Z = {}", m_S.get_sum(), m_Z.get_sum());
+      
+        if (m_Z.get_sum() != total) {
+          m_bridge.stop("Imbalance detected: total = {}; Z = {}", total, m_Z.get_sum());
+        }
+      }
+
+    }
+  
+};
+  
+}
+
+/*
     double m_Z = 0.0;
     double m_sumTx = 0.0;
     double m_sumVx = 0.0;
@@ -665,4 +836,6 @@ namespace blofeld
 
 } // blofeld
 
-#endif // BLOFELD_SEIRVMD_GROUP_H
+*/
+
+#endif // BLOFELD_SEIDRVMZ_GROUP_H
