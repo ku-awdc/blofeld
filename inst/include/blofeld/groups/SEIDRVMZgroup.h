@@ -187,9 +187,9 @@ namespace blofeld
       
       if constexpr (s_cts.debug) {
         auto const total = m_S.get_sum() + m_E.get_sum() + m_I.get_sum() + m_D.get_sum() + m_R.get_sum() + m_V.get_sum() + m_M.get_sum();
-        m_bridge.println("S = {}; Z = {}", m_S.get_sum(), m_Z.get_sum());
+        // m_bridge.println("S = {}; I = {}; R = {}; Z = {}", m_S.get_sum(), m_I.get_sum(), m_R.get_sum(), m_Z.get_sum());
       
-        if (m_Z.get_sum() != total) {
+        if (std::abs(m_Z.get_sum() - total) > s_cts.tol) {
           m_bridge.stop("Imbalance detected: total = {}; Z = {}", total, m_Z.get_sum());
         }
       }

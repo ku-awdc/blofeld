@@ -64,7 +64,9 @@ int main(int argc, char *argv[])
   }
   bridge.println("{} + {}", comp.get_sum(), carried+taken);
   
-  blofeld::SEIDRVMZgroup<cts, mt,
+  constexpr blofeld::ModelType mt2 = blofeld::ModelType::stochastic;
+  
+  blofeld::SEIDRVMZgroup<cts, mt2,
     ct, // S
     ct, // E
     ct, // I
@@ -76,7 +78,7 @@ int main(int argc, char *argv[])
   > group(bridge);
   
   
-  for(int i=0; i<20; ++i)
+  for(int i=0; i<10000; ++i)
   {
     group.update();
   }
