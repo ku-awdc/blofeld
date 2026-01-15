@@ -82,7 +82,50 @@ namespace blofeld
       // Get a struct from the underlying group and over-write any values in List names, then pass back
       SEIDRVMZpars crpars = m_group -> get_parameters();
 
-      // TODO
+      using namespace Rcpp;
+      
+      // List should be named:
+      StringVector names = nwpars.names();
+      for(int i=0; i<nwpars.size(); ++i)
+      {
+        // TODO: nicer error for NULL names and/or any length !=1
+        String nm = names[i];
+        if (nm == "beta_subclin") {
+          crpars.beta_subclin = nwpars[i];
+        } else if (nm == "beta_clinical") {
+          crpars.beta_clinical = nwpars[i];
+        } else if (nm == "contact_power") {
+          crpars.contact_power = nwpars[i];
+        } else if (nm == "incubation") {
+          crpars.incubation = nwpars[i];
+        } else if (nm == "progression") {
+          crpars.progression = nwpars[i];
+        } else if (nm == "recovery") {
+          crpars.recovery = nwpars[i];
+        } else if (nm == "healing") {
+          crpars.healing = nwpars[i];
+        } else if (nm == "reversion") {
+          crpars.reversion = nwpars[i];
+        } else if (nm == "waning") {
+          crpars.waning = nwpars[i];
+        } else if (nm == "vaccination") {
+          crpars.vaccination = nwpars[i];
+        } else if (nm == "mortality_E") {
+          crpars.mortality_E = nwpars[i];
+        } else if (nm == "mortality_L") {
+          crpars.mortality_L = nwpars[i];
+        } else if (nm == "mortality_I") {
+          crpars.mortality_I = nwpars[i];
+        } else if (nm == "mortality_D") {
+          crpars.mortality_D = nwpars[i];
+        } else if (nm == "death") {
+          crpars.death = nwpars[i];
+        } else if (nm == "d_time") {
+          crpars.d_time = nwpars[i];
+        } else {
+          m_bridge.stop("Unrecognised parameter name '{}'", nm.get_cstring());
+        }
+      }
 
       m_group -> set_parameters(crpars);
     }

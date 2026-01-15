@@ -28,7 +28,7 @@ constexpr CompileTimeSettings cts = {
 using Bridge = CompileTimeSettings::Bridge;
 Bridge bridge;
 
-constexpr blofeld::ModelType mt = blofeld::ModelType::deterministic;
+constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
 constexpr blofeld::CompType ct1 = {
   .compcont = blofeld::CompCont::array,
   .n = 1
