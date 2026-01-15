@@ -7,21 +7,54 @@
 
 namespace blofeld
 {
+  
+  enum class SEIDRVMZcomp
+  {
+    S, E, L, I, D, R, V, M
+  };
+  
   struct SEIDRVMZpars
   {
     // For getting and setting all parameter values
-  };
+    double beta_subclin = 0.0;    // Beta for L animals
+    double beta_clinical = 0.0;   // Beta for I animals
+    double contact_power = 1.0;   // Frequency vs density vs other dependence ( beta * S * I / N^contact_power)
+      
+    double incubation = 0.0;      // From E (exposed, not infectious)
+    double progression = 0.0;     // From L (infectious, not clinical)
+    double recovery = 0.0;        // From I (infectious and clinical)
+    double healing = 0.0;         // From D (not infectious but clinical)
+    double reversion = 0.0;       // From R (immune)
+    double waning = 0.0;          // From V (vaccinated)
 
-  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
+    double vaccination = 0.0;     // Random vaccination rate (S, R, V only) - TODO: remove
+    double mortality_E = 0.0;     // Disease-related mortality for Es
+    double mortality_L = 0.0;     // Disease-related mortality for Ls
+    double mortality_I = 0.0;     // Disease-related mortality for Is
+    double mortality_D = 0.0;     // Disease-related mortality for Ds
+    double death = 0.0;           // Other-cause mortality (also for E/L/I/D)
+    
+    double d_time = 1.0;          // Time step
+  };
+  
+  // TODO: have an inits struct to set Ns etc
+
+  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_L, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
   struct SEIDRVMZstate
   {
     // For getting only:  always full state
     // Setting is done for specific compartments separately
-    Compartment<s_cts, s_mtype, s_ctp_S> S;
-    Compartment<s_cts, s_mtype, s_ctp_E> E;
+    Compartment<s_cts, s_mtype, s_ctp_S> S;   // Susceptible
+    Compartment<s_cts, s_mtype, s_ctp_E> E;   // Exposed but not infectious or clinical
+    Compartment<s_cts, s_mtype, s_ctp_L> L;   // Infectious but not clinical
+    Compartment<s_cts, s_mtype, s_ctp_I> I;   // Infectious and clinical
+    Compartment<s_cts, s_mtype, s_ctp_D> D;   // Not infectious but clinical
+    Compartment<s_cts, s_mtype, s_ctp_R> R;   // Recovered - immune from reinfection
+    Compartment<s_cts, s_mtype, s_ctp_V> V;   // Vaccinated - immune with probability ve_susceptible
+    Compartment<s_cts, s_mtype, s_ctp_M> M;   // Dead from disease
   };
 
-  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
+  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_L, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
   class SEIDRVMZgroup : public Group<s_cts>
   {
   private:
@@ -42,6 +75,7 @@ namespace blofeld
     
     Compartment<s_cts, s_mtype, s_ctp_S> m_S;
     Compartment<s_cts, s_mtype, s_ctp_E> m_E;
+    Compartment<s_cts, s_mtype, s_ctp_L> m_L;
     Compartment<s_cts, s_mtype, s_ctp_I> m_I;
     Compartment<s_cts, s_mtype, s_ctp_D> m_D;
     Compartment<s_cts, s_mtype, s_ctp_R> m_R;
@@ -52,6 +86,44 @@ namespace blofeld
     static constexpr bool s_have_death = s_ctp_Z.is_active();
     static constexpr bool s_have_vacc = s_ctp_V.is_active();
     static constexpr bool s_have_mort = s_ctp_M.is_active();
+    
+    // Parameters:
+    double m_beta_subclin = 0.0;
+    double m_beta_clinical = 0.0;
+    double m_contact_power = 1.0;      
+    double m_incubation = 0.0;
+    double m_progression = 0.0;
+    double m_recovery = 0.0;
+    double m_healing = 0.0;
+    double m_reversion = 0.0;
+    double m_waning = 0.0;
+    double m_vaccination = 0.0;
+    double m_mortality_E = 0.0;
+    double m_mortality_L = 0.0;
+    double m_mortality_I = 0.0;
+    double m_mortality_D = 0.0;
+    double m_death = 0.0;
+    
+    SEIDRVMZpars m_pars {
+      .beta_subclin = m_beta_subclin,
+      .beta_clinical = m_beta_clinical,
+      .contact_power = m_contact_power,
+      .incubation = m_incubation,
+      .progression = m_progression,
+      .recovery = m_recovery,
+      .healing = m_healing,
+      .reversion = m_reversion,
+      .waning = m_waning,
+      .vaccination = m_vaccination,
+      .mortality_E = m_mortality_E,
+      .mortality_L = m_mortality_L,
+      .mortality_I = m_mortality_I,
+      .mortality_D = m_mortality_D,
+      .death = m_death,
+      .d_time = 1.0
+    };
+    
+    double m_external_infection = 0.0;
     
     // Do we have death?
     static constexpr size_t s_psd = [](){
@@ -87,50 +159,120 @@ namespace blofeld
     
     // Death is always first, then mortality/cull:
     std::array<double,s_ctp_E.is_active() ? s_psm : 0> m_deathmort_E_rate {};
+    std::array<double,s_ctp_L.is_active() ? s_psm : 0> m_deathmort_L_rate {};
     std::array<double,s_ctp_I.is_active() ? s_psm : 0> m_deathmort_I_rate {};
     std::array<double,s_ctp_D.is_active() ? s_psm : 0> m_deathmort_D_rate {};
 
   public:
     
     using Tpars = SEIDRVMZpars;
-    using Tstate = SEIDRVMZstate<s_cts, s_mtype, s_ctp_S, s_ctp_E, s_ctp_I, s_ctp_D, s_ctp_R, s_ctp_V, s_ctp_M, s_ctp_Z>;
+    using Tstate = SEIDRVMZstate<s_cts, s_mtype, s_ctp_S, s_ctp_E, s_ctp_L, s_ctp_I, s_ctp_D, s_ctp_R, s_ctp_V, s_ctp_M, s_ctp_Z>;
     
     SEIDRVMZgroup(Bridge& bridge)
-      : m_bridge(bridge), m_S(bridge), m_E(bridge), m_I(bridge), m_D(bridge),
-        m_R(bridge), m_V(bridge), m_M(bridge), m_Z(bridge)
+      : m_bridge(bridge), m_S(bridge), m_E(bridge), m_L(bridge), m_I(bridge),
+        m_D(bridge), m_R(bridge), m_V(bridge), m_M(bridge), m_Z(bridge)
+    {
+      validate();
+    }
+    
+    void validate() const
     {
       // TODO: checks that we always have an S
       // TODO: check that Z is a balancing type with n=0 or n=1, and none of the others are balancing
       
-      m_S.insert_value_start(10);
-      m_I.insert_value_start(1);
-      m_Z.insert_value_start(11);
     }
     
-    auto get_state() const ->
-      Tstate
+    void set_parameters(SEIDRVMZpars const& pars)
     {
-      Tstate state { m_S, m_E };
+      m_pars = pars;
+      
+      m_beta_subclin = pars.beta_subclin * pars.d_time;
+      m_beta_clinical = pars.beta_clinical * pars.d_time;
+      m_contact_power = pars.contact_power * pars.d_time;
+      m_incubation = pars.incubation * pars.d_time;
+      m_progression = pars.progression * pars.d_time;
+      m_recovery = pars.recovery * pars.d_time;
+      m_healing = pars.healing * pars.d_time;
+      m_reversion = pars.reversion * pars.d_time;
+      m_waning = pars.waning * pars.d_time;
+      m_vaccination = pars.vaccination * pars.d_time;
+      m_mortality_E = pars.mortality_E * pars.d_time;
+      m_mortality_L = pars.mortality_L * pars.d_time;
+      m_mortality_I = pars.mortality_I * pars.d_time;
+      m_mortality_D = pars.mortality_D * pars.d_time;
+      m_death = pars.death * pars.d_time;
+      
+      validate();      
+    }
+
+    auto get_parameters() const
+      -> SEIDRVMZpars
+    {
+      validate();
+      
+      return m_pars;
+    }
+
+    void set_external_infection(double const extinf)
+    {
+      m_external_infection = extinf;
+    }
+    
+    auto get_external_infection() const
+      -> double
+    {
+      return m_external_infection;
+    }
+    
+    auto get_state() const
+      -> Tstate
+    {
+      Tstate state { m_S, m_E, m_L, m_I, m_D, m_R, m_V, m_M };
       return state;
+    }
+    
+    void set_state(SEIDRVMZcomp compartment, t_Value value, bool distribute)
+    {
+      if (compartment == SEIDRVMZcomp::S) {
+        m_S.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::E) {
+        m_E.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::L) {
+        m_L.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::I) {
+        m_I.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::D) {
+        m_D.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::R) {
+        m_R.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::V) {
+        m_V.set_sum(value, distribute);
+      } else if (compartment == SEIDRVMZcomp::M) {
+        m_M.set_sum(value, distribute);
+      } else {
+        m_bridge.stop("Unrecognised compartment value in set_state");
+      }
+      
+      m_Z.set_sum(m_S.get_sum() + m_E.get_sum() + m_L.get_sum() + m_I.get_sum() + m_D.get_sum() + m_R.get_sum() + m_V.get_sum() + m_M.get_sum());
+      if constexpr (s_cts.debug) { validate(); }      
     }
     
     void update(int const n_steps = 1)
     {
+      if constexpr (s_cts.debug) { validate(); }
       for (int i=0; i<n_steps; ++i)
       {
         update_one();
       }
+      if constexpr (s_cts.debug) { validate(); }
     }
     
     void update_one()
     {
-      double const inf_rate = 0.1;
-      
-      double const m_incub_rate = 0.1;
-      double const m_clin_rate = 0.1;
-      double const m_rec_rate = 0.1;
-      double const m_rev_rate = 0.1;
-      double const m_wane_rate = 0.1;
+      // TODO: calculate only when contact power or Z/M change:
+      double const freqdens = static_cast<double>(std::pow((m_Z.get_sum() - m_M.get_sum()), m_contact_power));
+      // TODO: add external infection
+      double const inf_rate = m_external_infection + ((m_beta_subclin * static_cast<double>(m_L.get_sum()) + m_beta_clinical * static_cast<double>(m_I.get_sum())) / freqdens);
       
       // We always have S:
       auto const S_carry = [&](){
@@ -144,7 +286,7 @@ namespace blofeld
       auto const E_carry = [&](auto const input){
         if constexpr (s_ctp_E.is_active()) {        
           m_E.insert_value_start(input);
-          auto const [carry, take] = m_E.process_rate(m_incub_rate, m_deathmort_E_rate);
+          auto const [carry, take] = m_E.process_rate(m_incubation, m_deathmort_E_rate);
           if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
           if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
           return carry;
@@ -153,24 +295,37 @@ namespace blofeld
         }
       }(S_carry);
 
+      // We don't always have L:
+      auto const L_carry = [&](auto const input){
+        if constexpr (s_ctp_L.is_active()) {        
+          m_L.insert_value_start(input);
+          auto const [carry, take] = m_L.process_rate(m_progression, m_deathmort_L_rate);
+          if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
+          if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
+          return carry;
+        } else {
+          return input;
+        }
+      }(E_carry);
+
       // We don't always have I:
       auto const I_carry = [&](auto const input){
         if constexpr (s_ctp_I.is_active()) {        
           m_I.insert_value_start(input);
-          auto const [carry, take] = m_I.process_rate(m_clin_rate, m_deathmort_I_rate);
+          auto const [carry, take] = m_I.process_rate(m_recovery, m_deathmort_I_rate);
           if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
           if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
           return carry;        
         } else {
           return input;
         }
-      }(E_carry);
+      }(L_carry);
 
       // We don't always have D:
       auto const D_carry = [&](auto const input){
         if constexpr (s_ctp_D.is_active()) {        
           m_D.insert_value_start(input);
-          auto const [carry, take] = m_D.process_rate(m_rec_rate, m_deathmort_D_rate);
+          auto const [carry, take] = m_D.process_rate(m_healing, m_deathmort_D_rate);
           if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
           if constexpr (s_have_mort) m_M.insert_value_start(take[s_have_death ? 1 : 0]);
           return carry;        
@@ -183,7 +338,7 @@ namespace blofeld
       auto const R_carry = [&](auto const input){
         if constexpr (s_ctp_R.is_active()) {        
           m_R.insert_value_start(input);
-          auto const [carry, take] = m_R.process_rate(m_rev_rate, m_deathvacc_R_rate);
+          auto const [carry, take] = m_R.process_rate(m_reversion, m_deathvacc_R_rate);
           if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
           // Note: deliberately restart R rather than go to V for vaccine effect:
           if constexpr (s_have_vacc) m_R.insert_value_start(take[s_have_death ? 1 : 0]);
@@ -193,9 +348,11 @@ namespace blofeld
         }
       }(D_carry);
 
+
+      // TODO: allow V to become infected      
       auto const V_carry = [&](){
         if constexpr (s_ctp_V.is_active()) {        
-          auto const [carry, take] = m_V.process_rate(m_wane_rate, m_deathvacc_V_rate);
+          auto const [carry, take] = m_V.process_rate(m_waning, m_deathvacc_V_rate);
           if constexpr (s_have_death) m_Z.insert_value_start(take[0]);
           // Note: restart V if re-vaccinated:
           if constexpr (s_have_vacc) m_V.insert_value_start(take[s_have_death ? 1 : 0]);
@@ -209,6 +366,7 @@ namespace blofeld
         
       m_S.apply_changes();
       if constexpr (s_ctp_E.is_active()) m_E.apply_changes();
+      if constexpr (s_ctp_L.is_active()) m_L.apply_changes();
       if constexpr (s_ctp_I.is_active()) m_I.apply_changes();
       if constexpr (s_ctp_D.is_active()) m_D.apply_changes();
       if constexpr (s_ctp_R.is_active()) m_R.apply_changes();
@@ -217,7 +375,7 @@ namespace blofeld
       m_Z.apply_changes();
       
       if constexpr (s_cts.debug) {
-        auto const total = m_S.get_sum() + m_E.get_sum() + m_I.get_sum() + m_D.get_sum() + m_R.get_sum() + m_V.get_sum() + m_M.get_sum();
+        auto const total = m_S.get_sum() + m_E.get_sum() + m_L.get_sum() + m_I.get_sum() + m_D.get_sum() + m_R.get_sum() + m_V.get_sum() + m_M.get_sum();
         // m_bridge.println("S = {}; I = {}; R = {}; Z = {}", m_S.get_sum(), m_I.get_sum(), m_R.get_sum(), m_Z.get_sum());
       
         if (std::abs(m_Z.get_sum() - total) > s_cts.tol) {

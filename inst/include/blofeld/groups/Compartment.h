@@ -191,7 +191,7 @@ namespace blofeld
       // m_changes has an extra value:
       m_changes[m_changes.size()-1] = s_zero;
     }
-
+    
     [[nodiscard]] auto get_sum()
       const noexcept(!s_cts.debug)
       -> ValueType
