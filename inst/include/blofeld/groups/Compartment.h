@@ -21,7 +21,7 @@ namespace blofeld
   {
   private:
 
-    //static_assert(s_ctype.n > 0, "Invalid .n in CompType (must be >0)");
+    static_assert(s_ctype.n > 0, "Invalid .n in CompType (must be >0)");
 
     using ValueType = std::conditional_t<
       s_mtype == ModelType::deterministic,
@@ -84,7 +84,7 @@ namespace blofeld
     {
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
 
-      // static_assert(s_ctype.n > 0, "Invalid .n in CompType");
+      static_assert(s_ctype.n > 0, "Invalid .n in CompType");
 
       if constexpr (!s_cts.debug && s_ctype.n!=0U)
       {
