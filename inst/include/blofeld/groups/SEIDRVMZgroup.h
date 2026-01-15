@@ -7,6 +7,19 @@
 
 namespace blofeld
 {
+  struct SEIDRVMZpars
+  {
+    // For getting and setting all parameter values
+  };
+
+  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
+  struct SEIDRVMZstate
+  {
+    // For getting only:  always full state
+    // Setting is done for specific compartments separately
+    Compartment<s_cts, s_mtype, s_ctp_S> S;
+    Compartment<s_cts, s_mtype, s_ctp_E> E;
+  };
 
   template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
   class SEIDRVMZgroup : public Group<s_cts>
@@ -79,6 +92,9 @@ namespace blofeld
 
   public:
     
+    using Tpars = SEIDRVMZpars;
+    using Tstate = SEIDRVMZstate<s_cts, s_mtype, s_ctp_S, s_ctp_E, s_ctp_I, s_ctp_D, s_ctp_R, s_ctp_V, s_ctp_M, s_ctp_Z>;
+    
     SEIDRVMZgroup(Bridge& bridge)
       : m_bridge(bridge), m_S(bridge), m_E(bridge), m_I(bridge), m_D(bridge),
         m_R(bridge), m_V(bridge), m_M(bridge), m_Z(bridge)
@@ -91,7 +107,22 @@ namespace blofeld
       m_Z.insert_value_start(11);
     }
     
+    auto get_state() const ->
+      Tstate
+    {
+      Tstate state { m_S, m_E };
+      return state;
+    }
+    
     void update(int const n_steps = 1)
+    {
+      for (int i=0; i<n_steps; ++i)
+      {
+        update_one();
+      }
+    }
+    
+    void update_one()
     {
       double const inf_rate = 0.1;
       

@@ -8,6 +8,8 @@
 #include "blofeld/utilities/BridgeCpp.h"
 #include "blofeld/utilities/ContainerFormatter.h"
 
+#include "blofeld/Rcpp_wrappers/GroupWrapper.h"
+
 int main(int argc, char *argv[])
 {
 
@@ -66,7 +68,7 @@ int main(int argc, char *argv[])
   
   constexpr blofeld::ModelType mt2 = blofeld::ModelType::stochastic;
   
-  blofeld::SEIDRVMZgroup<cts, mt2,
+  using GroupType = blofeld::SEIDRVMZgroup<cts, mt2,
     ct, // S
     ct, // E
     ct, // I
@@ -75,13 +77,19 @@ int main(int argc, char *argv[])
     ct, // V
     ct, // M/C
     ct  // Z
-  > group(bridge);
-  
+  >;
+    
+  GroupType group(bridge);  
   
   for(int i=0; i<10000; ++i)
   {
     group.update();
   }
+  
+  
+  blofeld::GroupWrapper<cts, GroupType> gw(bridge, bridge);
+  gw.update(10000);
+  bridge.println("{}", gw.get_state());
   
   return 0;
 }

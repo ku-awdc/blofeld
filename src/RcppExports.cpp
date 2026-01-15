@@ -13,6 +13,16 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// testbridge
+int testbridge();
+RcppExport SEXP _blofeld_testbridge() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(testbridge());
+    return rcpp_result_gen;
+END_RCPP
+}
 
 // validate (ensure exported C++ functions exist before calling them)
 static int _blofeld_RcppExport_validate(const char* sig) { 
@@ -32,6 +42,7 @@ RcppExport SEXP _rcpp_module_boot_blofeld_module();
 RcppExport SEXP _rcpp_module_boot_wrap_class_example();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_blofeld_testbridge", (DL_FUNC) &_blofeld_testbridge, 0},
     {"_rcpp_module_boot_blofeld_module", (DL_FUNC) &_rcpp_module_boot_blofeld_module, 0},
     {"_rcpp_module_boot_wrap_class_example", (DL_FUNC) &_rcpp_module_boot_wrap_class_example, 0},
     {"_blofeld_RcppExport_registerCCallable", (DL_FUNC) &_blofeld_RcppExport_registerCCallable, 0},
