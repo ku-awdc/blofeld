@@ -13,7 +13,7 @@ gp$set_state(list(S=10.0, E=1.0), TRUE)
 gp$get_full_state()$E
 gp$get_state()
 
-gp$update(10000)
+gp$update(10)
 gp$get_state()
 
 

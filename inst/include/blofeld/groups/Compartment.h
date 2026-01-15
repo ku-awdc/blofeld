@@ -8,21 +8,21 @@
 
 #include "ModelCompTypes.h"
 
-// 
+//
 
 // TODO: should take/carry be immediate?  So only insert is done on delay?
 // TODO: allow s_ctype.n = 0 in which case it is set at run time
 
 namespace blofeld
 {
-  
+
   template <auto s_cts, ModelType s_mtype, CompType s_ctype>
   class Compartment
   {
   private:
-    
-    static_assert(s_ctype.n > 0, "Invalid .n in CompType (must be >0)");
-    
+
+    //static_assert(s_ctype.n > 0, "Invalid .n in CompType (must be >0)");
+
     using ValueType = std::conditional_t<
       s_mtype == ModelType::deterministic,
       double,
@@ -32,7 +32,7 @@ namespace blofeld
         void
       >
     >;
-    
+
     struct NoChecking
     {
     };
@@ -46,7 +46,7 @@ namespace blofeld
       NoChecking
     >;
     CheckType m_check;
-        
+
     // TODO: other container types
     using ContainerType = std::conditional_t<
       s_ctype.compcont == CompCont::array,
@@ -54,7 +54,7 @@ namespace blofeld
       std::conditional_t<
         s_ctype.compcont == CompCont::vector,
         std::vector<ValueType>,
-        void
+        std::array<ValueType, 1> //void
       >
     >;
 
@@ -64,26 +64,28 @@ namespace blofeld
       std::conditional_t<
         s_ctype.compcont == CompCont::vector,
         std::vector<ValueType>,
-        void
+        std::array<ValueType, 1> //void
       >
     >;
-        
+
     static constexpr ValueType s_zero = static_cast<ValueType>(0);
-      
+
     ContainerType m_values { };
     ChangesType m_changes { };
-  
+
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
-  
+
     // TODO: only constexpr for certain container types
     static constexpr int m_ncomps = s_ctype.n;
 
     auto check_compartments() const noexcept(!s_cts.debug)
       -> void
     {
-      static_assert(s_ctype.n > 0, "Invalid .n in CompType");
-      
+      if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
+      // static_assert(s_ctype.n > 0, "Invalid .n in CompType");
+
       if constexpr (!s_cts.debug && s_ctype.n!=0U)
       {
         if (m_ncomps != s_ctype.n) m_bridge.stop("Non-matching number of sub-compartments");
@@ -91,11 +93,13 @@ namespace blofeld
       if constexpr (s_ctype.n <= 0U)
       {
         m_bridge.stop("Negative s_ctype.n are not allowed, and values of 0 are not yet supported");
-      }    
+      }
     }
 
     void validate()
     {
+      if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
       if constexpr (s_mtype == ModelType::deterministic) {
         static_assert(std::is_same<ValueType, double>::value, "ValueType should be double for determinstic models");
       } else if constexpr (s_mtype == ModelType::stochastic) {
@@ -103,17 +107,17 @@ namespace blofeld
       } else {
         static_assert(false, "Unrecognised ModelType");
       }
-      
-      static_assert(s_ctype.compcont == CompCont::array, "Only array is implemented");
+
+      // static_assert(s_ctype.compcont == CompCont::array, "Only array is implemented");
       // TODO: validate container type
       if(m_ncomps!=s_ctype.n)
       {
-        m_bridge.stop("Number of compartments does not match between constructor and template parameter");  
+        m_bridge.stop("Number of compartments does not match between constructor and template parameter");
       };
     }
 
     Compartment() = delete;
-  
+
   public:
     explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
@@ -129,13 +133,15 @@ namespace blofeld
       set_sum(value);
       check_compartments();
     }
-    
+
     auto size() const
       -> std::size_t
     {
+      if constexpr (s_ctype.compcont == CompCont::disabled) return 0;
+
       return s_ctype.n;
     }
-    
+
     auto begin() noexcept
     {
       return m_values.begin();
@@ -153,7 +159,7 @@ namespace blofeld
     {
       return m_values.end();
     }
-    
+
     auto cbegin() const noexcept
     {
       return m_values.cbegin();
@@ -162,24 +168,26 @@ namespace blofeld
     {
       return m_values.end();
     }
-    
+
     auto apply_changes()
       noexcept(!s_cts.debug)
       -> void
     {
+      if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
       for(int i=0; i<s_ctype.n; ++i)
       {
         m_values[i] += m_changes[i];
         m_changes[i] = s_zero;
-    
+
         if constexpr (s_mtype==ModelType::deterministic)
         {
           // Zap occasional small negative values (no adjustment to m_Z, so it can't happen too often):
-          if(m_values[i] < s_zero && std::abs(m_values[i]) < s_cts.tol){        
+          if(m_values[i] < s_zero && std::abs(m_values[i]) < s_cts.tol){
             m_values[i] = s_zero;
           }
         }
-        
+
         if constexpr (s_cts.debug){
           if(m_values[i] < s_zero)
           {
@@ -187,15 +195,17 @@ namespace blofeld
           }
         }
       }
-      
+
       // m_changes has an extra value:
       m_changes[m_changes.size()-1] = s_zero;
     }
-    
+
     [[nodiscard]] auto get_sum()
       const noexcept(!s_cts.debug)
       -> ValueType
     {
+      if constexpr (s_ctype.compcont == CompCont::disabled) return 0;
+
       double const rv = std::accumulate(m_values.begin(), m_values.end(), s_zero);
       return rv;
     }
@@ -203,6 +213,8 @@ namespace blofeld
     auto set_sum(ValueType const value, bool const distribute = true) noexcept(!s_cts.debug)
       -> void
     {
+      if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
       if (distribute)
       {
         if constexpr (s_mtype==ModelType::deterministic)
@@ -227,7 +239,7 @@ namespace blofeld
         {
           static_assert(false, "Unrecognised ModelType in set_sum");
         }
-        
+
       } else {
         for(auto& val : m_values){
           val = s_zero;
@@ -261,19 +273,21 @@ namespace blofeld
     [[nodiscard]] auto process_rate(double const carry_rate, double const take_rate)
       -> auto
     {
-      return process_rate<1>(carry_rate, std::array<double,1> { take_rate });        
+      return process_rate<1>(carry_rate, std::array<double,1> { take_rate });
     }
     */
-    
+
     template<size_t s_ntake>
     [[nodiscard]] auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
       -> auto
     {
+      // if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
       // TODO: check all rates are (not strictly) positive
-      
+
       double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate);
       double const leave = sumrates==0.0 ? 0.0 : ((1.0 - std::exp(-sumrates)) / sumrates);
-      
+
       double const carry_prop = leave == 0.0 ? 0.0 : (leave * carry_rate);
       std::array<double, s_ntake> take_prop {};
       if (leave>0)
@@ -281,22 +295,24 @@ namespace blofeld
         for (int i=0; i<s_ntake; ++i)
         {
           take_prop[i] = leave * take_rate[i];
-        }        
+        }
       }
 
       return process_prop(carry_prop, take_prop);
-        
+
     }
 
     template<size_t s_ntake>
     [[nodiscard]] auto process_prop(double const carry_prop, std::array<double, s_ntake> const& take_prop)
       -> auto
     {
+      // if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
       // TODO: check all props are >=0 and sum to <=1
       // TODO: implement take_prop
-      
+
       std::array<ValueType, s_ntake> taken {};
-      
+
       if constexpr (s_mtype==ModelType::deterministic)
       {
         for (int i=0; i<s_ctype.n; ++i)
@@ -313,36 +329,36 @@ namespace blofeld
             taken[t] += tt;
           }
         }
-        
+
       } else if constexpr (s_mtype==ModelType::stochastic)
       {
-        
+
         std::array<double, s_ntake+1> probs;
         probs[0] = carry_prop;
         for (int i=0; i<s_ntake; ++i)
         {
           probs[i+1] = take_prop[i];
         }
-        
+
         for (int i=0; i<s_ctype.n; ++i)
         {
           std::array<ValueType, s_ntake+2> const
             cc = m_bridge.rmultinom(m_values[i], probs);
           static_assert(cc.size() == taken.size()+2);
-          
+
           m_changes[i] -= (m_values[i]-cc[0]);
-          m_changes[i+1] += cc[1];          
+          m_changes[i+1] += cc[1];
           for (int t=0; t<taken.size(); ++t)
           {
             taken[t] += cc[t+2];
           }
         }
-        
+
       } else
       {
         static_assert(false, "Unrecognised ModelType in apply_changes");
-      }      
-      
+      }
+
       if constexpr (s_cts.debug){
         for (auto val : m_values)
         {
@@ -351,15 +367,15 @@ namespace blofeld
             m_bridge.stop("Applying changes caused a negative value");
           }
         }
-      }      
-      
-      // TODO: make this a concrete type with bounds-checked accessor for take  
+      }
+
+      // TODO: make this a concrete type with bounds-checked accessor for take
       struct
       {
         ValueType carry;
         std::array<ValueType, s_ntake> take;
       } rv { m_changes[m_changes.size()-1], taken };
-        
+
       return rv;
     }
 
@@ -392,7 +408,7 @@ namespace blofeld
       }
       if constexpr (s_cts.debug){
         if(carry < 0.0) m_bridge.stop("Returning negative value from carry_rate");
-      }    
+      }
       return carry;
     }
     */
@@ -401,6 +417,8 @@ namespace blofeld
       noexcept(!s_cts.debug)
       -> void
     {
+      if constexpr (s_ctype.compcont == CompCont::disabled) return;
+
       m_changes[0] += value;
     }
 
@@ -427,7 +445,7 @@ namespace blofeld
     {
       return sum + get_sum();
     }
-    
+
     template <auto scts, ModelType sm, CompType sc>
     [[nodiscard]] auto operator+(Compartment<scts, sm, sc> const& obj)
       const noexcept(!s_cts.debug)
@@ -435,7 +453,7 @@ namespace blofeld
     {
       return obj.get_sum() + get_sum();
     }
-    
+
   };
 
   template <auto scts, ModelType sm, CompType sc, typename T>
@@ -444,7 +462,7 @@ namespace blofeld
   {
     using T2 = decltype(obj)::ValueType;
     static_assert(std::is_same<T, T2>::value, "Inconsistent ValueType when summing compartments");
-    
+
     return sum + obj.get_sum();
   }
 
@@ -454,7 +472,7 @@ namespace blofeld
   {
     using T2 = decltype(obj)::ValueType;
     static_assert(std::is_same<T, T2>::value, "Inconsistent ValueType when summing compartments");
-    
+
     return sum + obj.get_sum();
   }
 

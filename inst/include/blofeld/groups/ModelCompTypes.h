@@ -28,7 +28,7 @@ namespace blofeld
     consteval auto is_active() const
       -> bool
     {
-      return n!=0;
+      return compcont!=CompCont::disabled && n!=0;
     }
     
   };

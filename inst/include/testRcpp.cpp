@@ -28,7 +28,11 @@ constexpr CompileTimeSettings cts = {
 using Bridge = CompileTimeSettings::Bridge;
 Bridge bridge;
 
-constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
+constexpr blofeld::ModelType mt = blofeld::ModelType::deterministic;
+constexpr blofeld::CompType ct0 = {
+  .compcont = blofeld::CompCont::disabled,
+  .n = 1
+};
 constexpr blofeld::CompType ct1 = {
   .compcont = blofeld::CompCont::array,
   .n = 1
@@ -41,11 +45,11 @@ constexpr blofeld::CompType ct3 = {
 using GroupType = blofeld::SEIDRVMZgroup<cts, mt,
   ct1, // S
   ct3, // E
-  ct1, // L
-  ct1, // I
-  ct1, // D
+  ct0, // L
+  ct3, // I
+  ct0, // D
   ct1, // R
-  ct1, // V
+  ct0, // V
   ct1, // M
   ct1  // Z
 >;
