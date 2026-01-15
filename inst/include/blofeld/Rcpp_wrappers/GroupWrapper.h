@@ -53,7 +53,7 @@ namespace blofeld
     {
       // Get a struct from the underlying group and convert to Rcpp::List
       SEIDRVMZpars pars = m_group -> get_parameters();
-      
+
       using namespace Rcpp;
       List rv = List::create(
         _["beta_subclin"] = pars.beta_subclin,
@@ -73,7 +73,7 @@ namespace blofeld
         _["death"] = pars.death,
         _["d_time"] = pars.d_time
       );
-      
+
       return rv;
     }
 
@@ -81,18 +81,53 @@ namespace blofeld
     {
       // Get a struct from the underlying group and over-write any values in List names, then pass back
       SEIDRVMZpars crpars = m_group -> get_parameters();
-      
+
       // TODO
-      
+
       m_group -> set_parameters(crpars);
     }
 
     [[nodiscard]] auto get_state() const
       -> DataFrame
     {
-      get_full_state();
-      // Data frame with single row and columns for each compartment (total)
-      DataFrame rv = 1.0;
+      Tstate state = m_group -> get_state();
+
+      using namespace Rcpp;
+
+      auto tt = state.S.get_sum();
+      using trcpp = std::conditional_t<
+        std::is_same<typeof(tt), double>::value,
+        NumericVector,
+        std::conditional_t<
+          std::is_same<typeof(tt), int>::value,
+          IntegerVector,
+          void
+        >
+      >;
+
+      auto lfun = [&](auto const& cc){
+        auto ptr = cc.ptr();
+        trcpp rc(1);
+        for(int i=0; i<ptr.size(); ++i) rc[0] += ptr[i];
+        return rc;
+      };
+
+      NumericVector tm(1);
+      tm[0] = state.time;
+
+      // List with names equating to compartments and variable lengths
+      DataFrame rv = DataFrame::create(
+        _["Time"] = tm,
+        _["S"] = lfun(state.S),
+        _["E"] = lfun(state.E),
+        _["L"] = lfun(state.L),
+        _["I"] = lfun(state.I),
+        _["D"] = lfun(state.D),
+        _["R"] = lfun(state.R),
+        _["V"] = lfun(state.V),
+        _["M"] = lfun(state.M)
+      );
+
       return rv;
     }
 
@@ -100,30 +135,77 @@ namespace blofeld
       -> List
     {
       Tstate state = m_group -> get_state();
-      //m_bridge.println("{}, {}", state.S, state.E);
-      
+
       using namespace Rcpp;
-      
-      // TODO: IntegerVector if appropriate
+
+      auto tt = state.S.get_sum();
+      using trcpp = std::conditional_t<
+        std::is_same<typeof(tt), double>::value,
+        NumericVector,
+        std::conditional_t<
+          std::is_same<typeof(tt), int>::value,
+          IntegerVector,
+          void
+        >
+      >;
+
       auto lfun = [&](auto const& cc){
         auto ptr = cc.ptr();
-        NumericVector rc(cc.size());
-        for(int i=0; i<cc.size(); ++i) rc[i] = ptr[i];
+        trcpp rc(ptr.size());
+        for(int i=0; i<ptr.size(); ++i) rc[i] = ptr[i];
         return rc;
       };
-      
+
+      NumericVector tm(1);
+      tm[0] = state.time;
+
       // List with names equating to compartments and variable lengths
       List rv = List::create(
+        _["Time"] = tm,
         _["S"] = lfun(state.S),
-        _["E"] = lfun(state.E)
+        _["E"] = lfun(state.E),
+        _["L"] = lfun(state.L),
+        _["I"] = lfun(state.I),
+        _["D"] = lfun(state.D),
+        _["R"] = lfun(state.R),
+        _["V"] = lfun(state.V),
+        _["M"] = lfun(state.M)
       );
-      
+
       return rv;
     }
 
-    void set_state(List)
+    void set_state(List state, bool const distribute)
     {
-      // List should be named - for each call the appropriate underlying method depending on length of element (1 or >1)
+      using namespace Rcpp;
+      
+      // List should be named:
+      StringVector names = state.names();
+      for(int i=0; i<state.size(); ++i)
+      {
+        // TODO: nicer error for NULL names and/or any length !=1
+        String nm = names[i];
+        if (nm == "S") {
+          m_group -> set_state(SEIDRVMZcomp::S, state[i], distribute);
+        } else if (nm == "E") {
+          m_group -> set_state(SEIDRVMZcomp::E, state[i], distribute);
+        } else if (nm == "L") {
+          m_group -> set_state(SEIDRVMZcomp::L, state[i], distribute);
+        } else if (nm == "I") {
+          m_group -> set_state(SEIDRVMZcomp::I, state[i], distribute);
+        } else if (nm == "D") {
+          m_group -> set_state(SEIDRVMZcomp::D, state[i], distribute);
+        } else if (nm == "R") {
+          m_group -> set_state(SEIDRVMZcomp::R, state[i], distribute);
+        } else if (nm == "V") {
+          m_group -> set_state(SEIDRVMZcomp::V, state[i], distribute);
+        } else if (nm == "M") {
+          m_group -> set_state(SEIDRVMZcomp::M, state[i], distribute);
+        } else {
+          m_bridge.stop("Unrecognised compartment name '{}'", nm.get_cstring());
+        }
+      }
+
     }
 
   };

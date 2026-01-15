@@ -28,7 +28,7 @@ constexpr CompileTimeSettings cts = {
 using Bridge = CompileTimeSettings::Bridge;
 Bridge bridge;
 
-constexpr blofeld::ModelType mt = blofeld::ModelType::stochastic;
+constexpr blofeld::ModelType mt = blofeld::ModelType::deterministic;
 constexpr blofeld::CompType ct1 = {
   .compcont = blofeld::CompCont::array,
   .n = 1
@@ -58,7 +58,10 @@ RCPP_MODULE(blofeld_test){
     .constructor()
     .method("update", &GroupWrapper::update)
     .method("get_parameters", &GroupWrapper::get_parameters)
+    .method("set_parameters", &GroupWrapper::set_parameters)
     .method("get_full_state", &GroupWrapper::get_full_state)
+    .method("get_state", &GroupWrapper::get_state)
+    .method("set_state", &GroupWrapper::set_state)
   ;
 }
 

@@ -44,6 +44,7 @@ namespace blofeld
   {
     // For getting only:  always full state
     // Setting is done for specific compartments separately
+    double time = 0.0;
     Compartment<s_cts, s_mtype, s_ctp_S> S;   // Susceptible
     Compartment<s_cts, s_mtype, s_ctp_E> E;   // Exposed but not infectious or clinical
     Compartment<s_cts, s_mtype, s_ctp_L> L;   // Infectious but not clinical
@@ -73,6 +74,7 @@ namespace blofeld
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
     
+    double m_time = 0.0;
     Compartment<s_cts, s_mtype, s_ctp_S> m_S;
     Compartment<s_cts, s_mtype, s_ctp_E> m_E;
     Compartment<s_cts, s_mtype, s_ctp_L> m_L;
@@ -227,7 +229,7 @@ namespace blofeld
     auto get_state() const
       -> Tstate
     {
-      Tstate state { m_S, m_E, m_L, m_I, m_D, m_R, m_V, m_M };
+      Tstate state { m_time, m_S, m_E, m_L, m_I, m_D, m_R, m_V, m_M };
       return state;
     }
     
@@ -269,6 +271,8 @@ namespace blofeld
     
     void update_one()
     {
+      m_time += m_pars.d_time;
+      
       // TODO: calculate only when contact power or Z/M change:
       double const freqdens = static_cast<double>(std::pow((m_Z.get_sum() - m_M.get_sum()), m_contact_power));
       // TODO: add external infection
