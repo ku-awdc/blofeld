@@ -134,6 +134,12 @@ namespace blofeld
       check_compartments();
     }
 
+    static constexpr auto is_active()
+      -> bool
+    {
+      return s_ctype.is_active();
+    }
+
     auto size() const
       -> std::size_t
     {

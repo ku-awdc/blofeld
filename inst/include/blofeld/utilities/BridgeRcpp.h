@@ -2,6 +2,7 @@
 #define BLOFELD_BRIDGE_RCPP_H
 
 #include <Rcpp.h>
+#define R_NO_REMAP
 
 #include "Bridge.h"
 

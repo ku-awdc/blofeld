@@ -32,6 +32,24 @@ namespace blofeld
     }
     
   };
+  
+  // Helper function
+  consteval CompType component(size_t const n)
+  {
+    if (n==0) {
+      CompType ct = {
+        .compcont = CompCont::disabled,
+        .n = 1
+      };    
+      return ct;
+    } else {
+      CompType ct = {
+        .compcont = CompCont::array,
+        .n = n
+      };    
+      return ct;
+    }
+  }
 
 }
 

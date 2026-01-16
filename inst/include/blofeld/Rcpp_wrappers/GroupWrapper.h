@@ -4,11 +4,28 @@
 // We MUST have Rcpp access here, as this is a wrapper to Rcpp
 #include <Rcpp.h>
 
+#include <type_traits>
+
 namespace blofeld
 {
+  
+  /*class BasicGroup
+  {
+  public:
+    BasicGroup() { }
+    Rcpp::DataFrame update() { return get_state(); }
+    Rcpp::List get_parameters() const { return get_full_state(); }
+    void set_parameters(Rcpp::List pars) { }
+    Rcpp::List get_full_state() const { Rcpp::List rv; return rv; }
+    Rcpp::DataFrame get_state() const { Rcpp::DataFrame rv; return rv; }
+    void set_state(Rcpp::List state) { }
+    double get_external_infection() const { return 0.0; }
+    void set_external_infection(double const) { }
+  };
+  */
 
   template <auto s_cts, class Tgroup>
-  class GroupWrapper
+  class GroupWrapper //: public BasicGroup
   {
   private:
     using Bridge = decltype(s_cts)::Bridge;
@@ -46,6 +63,17 @@ namespace blofeld
 
       DataFrame rv = get_state();
       return rv;
+    }
+    
+    void set_external_infection(double const extinf)
+    {
+      m_group -> set_external_infection(extinf);
+    }
+    
+    [[nodiscard]] auto get_external_infection() const noexcept
+      -> double
+    {
+      return m_group -> get_external_infection();
     }
 
     [[nodiscard]] auto get_parameters() const
@@ -129,52 +157,8 @@ namespace blofeld
 
       m_group -> set_parameters(crpars);
     }
-
-    [[nodiscard]] auto get_state() const
-      -> DataFrame
-    {
-      Tstate state = m_group -> get_state();
-
-      using namespace Rcpp;
-
-      auto tt = state.S.get_sum();
-      using trcpp = std::conditional_t<
-        std::is_same<typeof(tt), double>::value,
-        NumericVector,
-        std::conditional_t<
-          std::is_same<typeof(tt), int>::value,
-          IntegerVector,
-          void
-        >
-      >;
-
-      auto lfun = [&](auto const& cc){
-        auto ptr = cc.ptr();
-        trcpp rc(1);
-        for(int i=0; i<ptr.size(); ++i) rc[0] += ptr[i];
-        return rc;
-      };
-
-      NumericVector tm(1);
-      tm[0] = state.time;
-
-      // List with names equating to compartments and variable lengths
-      DataFrame rv = DataFrame::create(
-        _["Time"] = tm,
-        _["S"] = lfun(state.S),
-        _["E"] = lfun(state.E),
-        _["L"] = lfun(state.L),
-        _["I"] = lfun(state.I),
-        _["D"] = lfun(state.D),
-        _["R"] = lfun(state.R),
-        _["V"] = lfun(state.V),
-        _["M"] = lfun(state.M)
-      );
-
-      return rv;
-    }
-
-    auto get_full_state() const
+    
+    [[nodiscard]] auto get_full_state() const
       -> List
     {
       Tstate state = m_group -> get_state();
@@ -183,10 +167,10 @@ namespace blofeld
 
       auto tt = state.S.get_sum();
       using trcpp = std::conditional_t<
-        std::is_same<typeof(tt), double>::value,
+        std::is_same<decltype(tt), double>::value,
         NumericVector,
         std::conditional_t<
-          std::is_same<typeof(tt), int>::value,
+          std::is_same<decltype(tt), int>::value,
           IntegerVector,
           void
         >
@@ -205,15 +189,61 @@ namespace blofeld
       // List with names equating to compartments and variable lengths
       List rv = List::create(
         _["Time"] = tm,
-        _["S"] = lfun(state.S),
-        _["E"] = lfun(state.E),
-        _["L"] = lfun(state.L),
-        _["I"] = lfun(state.I),
-        _["D"] = lfun(state.D),
-        _["R"] = lfun(state.R),
-        _["V"] = lfun(state.V),
-        _["M"] = lfun(state.M)
+        _["S"] = lfun(state.S)
       );
+        
+      if constexpr (state.E.is_active()) rv.push_back(lfun(state.E), "E");
+      if constexpr (state.L.is_active()) rv.push_back(lfun(state.L), "L");
+      if constexpr (state.I.is_active()) rv.push_back(lfun(state.I), "I");
+      if constexpr (state.D.is_active()) rv.push_back(lfun(state.D), "D");
+      if constexpr (state.R.is_active()) rv.push_back(lfun(state.R), "R");
+      if constexpr (state.V.is_active()) rv.push_back(lfun(state.V), "V");
+      if constexpr (state.M.is_active()) rv.push_back(lfun(state.M), "M");
+      
+      return rv;
+    }
+
+    [[nodiscard]] auto get_state() const
+      -> DataFrame
+    {
+      Tstate state = m_group -> get_state();
+
+      using namespace Rcpp;
+
+      auto tt = state.S.get_sum();
+      using trcpp = std::conditional_t<
+        std::is_same<decltype(tt), double>::value,
+        NumericVector,
+        std::conditional_t<
+          std::is_same<decltype(tt), int>::value,
+          IntegerVector,
+          void
+        >
+      >;
+
+      auto lfun = [&](auto const& cc){
+        auto ptr = cc.ptr();
+        trcpp rc(1);
+        for(int i=0; i<ptr.size(); ++i) rc[0] += ptr[i];
+        return rc;
+      };
+
+      NumericVector tm(1);
+      tm[0] = state.time;
+
+      // List with names equating to compartments and variable lengths
+      DataFrame rv = DataFrame::create(
+        _["Time"] = tm,
+        _["S"] = lfun(state.S)
+      );
+        
+      if constexpr (state.E.is_active()) rv.push_back(lfun(state.E), "E");
+      if constexpr (state.L.is_active()) rv.push_back(lfun(state.L), "L");
+      if constexpr (state.I.is_active()) rv.push_back(lfun(state.I), "I");
+      if constexpr (state.D.is_active()) rv.push_back(lfun(state.D), "D");
+      if constexpr (state.R.is_active()) rv.push_back(lfun(state.R), "R");
+      if constexpr (state.V.is_active()) rv.push_back(lfun(state.V), "V");
+      if constexpr (state.M.is_active()) rv.push_back(lfun(state.M), "M");
 
       return rv;
     }
