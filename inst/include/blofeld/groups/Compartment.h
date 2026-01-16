@@ -291,7 +291,7 @@ namespace blofeld
 
       // TODO: check all rates are (not strictly) positive
 
-      double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate);
+      double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate * s_ctype.n);
       double const leave = sumrates==0.0 ? 0.0 : ((1.0 - std::exp(-sumrates)) / sumrates);
 
       double const carry_prop = leave == 0.0 ? 0.0 : (leave * carry_rate);
@@ -316,6 +316,7 @@ namespace blofeld
 
       // TODO: check all props are >=0 and sum to <=1
       // TODO: implement take_prop
+	  // TODO: this is NOT accounting for n, as process_rate has already done that
 
       std::array<ValueType, s_ntake> taken {};
 
