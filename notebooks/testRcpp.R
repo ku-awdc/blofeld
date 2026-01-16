@@ -1,5 +1,6 @@
 library("Rcpp")
 
+# install.packages('blofeld', repos=c(CRAN="https://cran.rstudio.com/", "ku-awdc"="https://ku-awdc.github.io/drat/"))
 try(rm(gp)); gc(); sourceCpp("notebooks/testRcpp.cpp")
 
 gp <- Group$new()
