@@ -8,7 +8,7 @@ gp$get_state()
 
 gp$get_parameters()
 d_time <- 1/1000
-gp$set_parameters(list(death=0.1, d_time=d_time))
+gp$set_parameters(list(incubation=0.1, recovery=0, death=0, mortality_E=0, mortality_I=0, d_time=d_time))
 
 gp$get_full_state()
 gp$get_state()

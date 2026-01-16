@@ -284,14 +284,16 @@ namespace blofeld
     */
 
     template<size_t s_ntake>
-    [[nodiscard]] auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
+    [[nodiscard]] auto process_rate(double carry_rate, std::array<double, s_ntake> const& take_rate)
       -> auto
     {
       // if constexpr (s_ctype.compcont == CompCont::disabled) return;
 
       // TODO: check all rates are (not strictly) positive
+	  
+	  carry_rate *= s_ctype.n;
 
-      double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate * s_ctype.n);
+      double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate);
       double const leave = sumrates==0.0 ? 0.0 : ((1.0 - std::exp(-sumrates)) / sumrates);
 
       double const carry_prop = leave == 0.0 ? 0.0 : (leave * carry_rate);

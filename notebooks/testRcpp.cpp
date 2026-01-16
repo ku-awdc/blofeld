@@ -14,7 +14,7 @@ constexpr struct
 
 using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::deterministic,
   blofeld::component(1), // S
-  blofeld::component(3), // E
+  blofeld::component(20), // E
   blofeld::component(0), // L
   blofeld::component(3), // I
   blofeld::component(0), // D
