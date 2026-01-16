@@ -13,3 +13,4 @@ inst/doc
 **/*.so
 **/*.o
 inst/include/test
+Rprof.out

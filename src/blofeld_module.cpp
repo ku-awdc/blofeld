@@ -1,4 +1,6 @@
+#define R_NO_REMAP
 #include <Rcpp.h>
+#define R_NO_REMAP
 
 #include "blofeld.h"
 
