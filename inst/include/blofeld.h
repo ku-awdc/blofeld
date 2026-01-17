@@ -16,4 +16,4 @@
 #include "blofeld/utilities/ContainerFormatter.h"
 
 #include "blofeld/Rcpp_wrappers/GroupWrapper.h"
-//#include "blofeld/Rcpp_wrappers/rcpp_module.h"
+#include "blofeld/Rcpp_wrappers/rcpp_module_macros.h"

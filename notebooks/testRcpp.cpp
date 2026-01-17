@@ -2,7 +2,7 @@
 // [[Rcpp::depends(blofeld)]]
 
 #include <Rcpp.h>
-#include <blofeld.h>
+#include "../inst/include/blofeld.h"
 
 constexpr struct
 {
@@ -28,14 +28,6 @@ using Group = blofeld::GroupWrapper<cts, GroupType>;
 
 RCPP_MODULE(blofeld_test){
   using namespace Rcpp;
-  class_<Group>("Group")
-    .constructor()
-    .method("update", &Group::update)
-    .method("get_parameters", &Group::get_parameters)
-    .method("set_parameters", &Group::set_parameters)
-    .method("get_full_state", &Group::get_full_state)
-    .method("get_state", &Group::get_state)
-    .method("set_state", &Group::set_state)
-    .property("external_infection", &Group::get_external_infection,  &Group::set_external_infection)
-  ;
+
+  GROUP_CLASS(Group)
 }
