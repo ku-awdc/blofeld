@@ -205,6 +205,12 @@ namespace blofeld
       // m_changes has an extra value:
       m_changes[m_changes.size()-1] = s_zero;
     }
+    
+    [[nodiscard]] auto get_values() const
+      -> ContainerType 
+    {
+      return m_values;
+    }
 
     [[nodiscard]] auto get_sum()
       const noexcept(!s_cts.debug)
@@ -291,7 +297,7 @@ namespace blofeld
 
       // TODO: check all rates are (not strictly) positive
 	  
-	  carry_rate *= s_ctype.n;
+      carry_rate *= s_ctype.n;
 
       double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_rate);
       double const leave = sumrates==0.0 ? 0.0 : ((1.0 - std::exp(-sumrates)) / sumrates);
