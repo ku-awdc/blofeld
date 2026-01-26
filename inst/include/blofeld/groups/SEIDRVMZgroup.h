@@ -197,9 +197,11 @@ namespace blofeld
     {
       m_pars = pars;
 
+      // Note:  this does NOT get adjusted by d_time!!!!
+      m_contact_power = pars.contact_power;
+
       m_beta_subclin = pars.beta_subclin * pars.d_time;
       m_beta_clinical = pars.beta_clinical * pars.d_time;
-      m_contact_power = pars.contact_power * pars.d_time;
       m_incubation = pars.incubation * pars.d_time;
       m_progression = pars.progression * pars.d_time;
       m_recovery = pars.recovery * pars.d_time;
@@ -250,7 +252,7 @@ namespace blofeld
 
     void set_external_infection(double const extinf)
     {
-      m_external_infection = extinf;
+      m_external_infection = extinf * m_pars.d_time;
     }
 
     auto get_external_infection() const
