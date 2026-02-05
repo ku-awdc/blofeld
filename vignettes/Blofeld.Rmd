@@ -1,8 +1,8 @@
 ---
-title: "Blofeld"
+title: "Introduction to the BLOFELD modelling framework"
 output: rmarkdown::html_vignette
 vignette: >
-  %\VignetteIndexEntry{Blofeld}
+  %\VignetteIndexEntry{blofeld}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -14,6 +14,138 @@ knitr::opts_chunk$set(
 )
 ```
 
+# Overview
+
+
+The BLOFELD modelling framework is based on encapsulated object-oriented programming (OOP) methods, employing self-contained objects of a given class with their own internal state and methods to retrieve and/or change that state. A model is composed of several of these objects, each deriving from the following base classes:
+
+- Compartment:  a low-level class describing a single compartment of a compartmental model
+- Group:  a single group of individuals; can be either a compartmental model or agent-based model
+- Population:  a collection of groups (of the same class)
+- Spread:  a class describing spread between groups
+
+TODO: overview of base classes provided
+
+To run the code provided in this vignette you need to load the blofeld package:
+
 ```{r setup}
 library("blofeld")
 ```
+
+
+## The compartment class
+
+The easiest way of demonstrating the principles (and advantages) of encapsulated OOP are to take a look at the compartment class provided by the blofeld package. This class is designed to reduce the number of possible mistakes it is possible to make when implementing a discreet-time compartmental model. The class itself is implemented in C++ but an R6 wrapper is provided (partly for documentation purposes). You can see the help file for this via:
+
+```{r eval=FALSE}
+?Compartment
+?new_compartment
+```
+
+We can use the new_compartment function to create a new compartment object, with the following options:
+
+- type: stochastic (value type int) or deterministic (value type double)
+- sub_compartments: a positive integer indicating the number of sub-compartments to use (0 is also allowed: see below)
+- container: one of auto, vector, array, or inplace-vector - this controls the underling C++ container type used for sub-compartments
+- validate: one of none, inputs, or all - this controls if nothing should be checked, if only input rates/values should be checked for validity, or if the internal values should also be checked for validity (i.e. non-negative).
+
+Note that not all options are available in combination using the pre-compiled options in the blofeld package - however you can compile your own compartment class with whichever options you need.
+
+Let's create a deterministic compartment with three sub-compartments, automatic container type, and full validation:
+
+```{r}
+
+```
+
+The print method shows basic information about the object:
+
+```{r}
+
+```
+
+We can modify the total number of individuals in the compartment:
+
+```{r}
+
+```
+
+Or directly set the values in each sub-compartment:
+
+```{r}
+
+```
+
+We can also take individuals out of all sub-compartments (e.g. as mortality) according to a given rate - this returns a value equal to the total number of individuals leaving all sub-compartments:
+
+```{r}
+
+```
+
+Note that the take_rate method can be run multiple times, in which case the second/third/etc call will work with the remaining individuals (i.e. discounting those removed by previous calls to the method). Changing the order of these method calls effectively gives priority to the earlier method calls.
+
+If you want to have competing rates (e.g. different causes of mortality) then you can specify a (named) vector of one or more rates to the method call - this returns a (possibly named) vector of values equal to the total number of individuals removed for each of the rates specified:
+
+```{r}
+
+```
+
+In this case, the vector of rates specified will be internally adjusted to remove the overlap before being applied to the sub-compartments.
+
+Individuals can also be moved through the sub-compartments via a specified rate - this returns a value equal to the number of individuals leaving the compartment (from the final sub-compartment):
+
+```{r}
+
+```
+
+This method can only be called once per time step, and the vector of move rates cannot be vectorised. However, it is possible to specify a relative proportion of individuals leaving the final sub-compartment into more than one destination:
+
+```{r}
+
+```
+
+This method call would usually be done after all of the take rates have been applied, as e.g. mortality will always have a higher priority than recovery processes. However, if you need to, you can call the take_rate function after the move_rate function. 
+
+If you need to have the move rate competing with one or more take rates, then you can do so using the move_take_rate method. The return value of this is a list to disambiguate the move destination(s) from the take rates.  I can't think of many valid use cases for this so you are unlikely to want to use it. You can't use both move_rate and move_take_rate in the same time step.
+
+Finally, we can add individuals to the first sub-compartment:
+
+```{r}
+
+```
+
+However, none of these methods have affected the current state of the compartment:
+
+```{r}
+
+```
+
+This means that you can add individuals without them being subject to subsequent take/move methods, and that you don't have to worry about potential changes to the total compartment size within an iteration - changes are only applied once you call the apply method:
+
+```{r}
+
+```
+
+The only exception to this is where you specify a compartment with zero sub-compartments:
+
+```{r}
+
+```
+
+In this case, any and all individuals added using the insert method are immediately removed by the move_rate (or move_take_rate) method without a need to call the apply method in between - this is useful for disabling a compartment within a larger model. Any calls to take_rate etc are ignored.
+
+The compartment class has a number of other methods and properties (which are active binding functions to the underlying fields):
+
+- $
+- $Cpp extracts a direct reference to the underlying C++ class, which has (pretty much) the same methods and properties as the R6 wrapper 
+
+
+## Discrete time and competing rates
+
+The move_rate is applied to each sub-compartments sequentially in a single time step, so it is always possible for individuals to leave a compartment after only a single time step, regardless of the number of sub-compartments (unless there are zero sub-compartments, in which case all individuals leave on the _same_ time step as they entered - see above).
+
+TODO
+
+
+## Groups
+
+
