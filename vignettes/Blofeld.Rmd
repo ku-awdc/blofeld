@@ -135,7 +135,7 @@ In this case, any and all individuals added using the insert method are immediat
 
 The compartment class has a number of other methods and properties (which are active binding functions to the underlying fields):
 
-- $
+- $take_prop does the same as take_rate but the argument is specified as a proportion rather than rate (this must be correctly adjusted for d_time etc)
 - $Cpp extracts a direct reference to the underlying C++ class, which has (pretty much) the same methods and properties as the R6 wrapper 
 
 
@@ -144,6 +144,40 @@ The compartment class has a number of other methods and properties (which are ac
 The move_rate is applied to each sub-compartments sequentially in a single time step, so it is always possible for individuals to leave a compartment after only a single time step, regardless of the number of sub-compartments (unless there are zero sub-compartments, in which case all individuals leave on the _same_ time step as they entered - see above).
 
 TODO
+
+
+
+```{r}
+subcomp <- c(1,numeric(sample(200, 1)))
+rate <- exp(runif(1, log(0.001), log(0.5))) |> round(3)
+prop <- 1-exp(-rate)
+output <- numeric(10000)
+
+for(o in seq_along(output)){
+  mv <- 0
+  for(i in seq_along(subcomp)){
+    subcomp[i] <- subcomp[i] + mv
+    mv <- prop * subcomp[i]
+    subcomp[i] <- subcomp[i] - mv
+  }
+  output[o] <- mv
+}
+# Means:
+sum(output*(seq_along(output)-1)) / sum(output)
+length(subcomp)/rate -(length(subcomp)/2)
+rt2 <- length(subcomp) / (length(subcomp)/rate - length(subcomp)/2)
+length(subcomp)/rt2
+
+# Seems to always be almost perfect:
+plot(seq_along(output)-1 +(length(subcomp)/2), cumsum(output), type="l", main=str_c(rate, " - ", length(subcomp)))
+lines(seq_along(output)-1, cumsum(output), col="grey50")
+#curve(pnbinom(x, length(subcomp), mu=length(subcomp)/rate), add=TRUE, col="blue")
+curve(pgamma(x, length(subcomp), rate), add=TRUE, col="red", lty="dashed")
+
+# Not quite right for e.g. 0.112 - 41 or 39: 0.287 -> 0.335 but mostly good:
+plot(seq_along(output)-1, cumsum(output), type="l", main=str_c(length(subcomp), ": ", rate, " -> ", rt2))
+curve(pgamma(x, length(subcomp), rt2), add=TRUE, col="red", lty="dashed")
+```
 
 
 ## Groups
