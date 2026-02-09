@@ -5,6 +5,7 @@
 #include <numeric>
 #include <iostream>
 #include <typeinfo>
+#include <type_traits>
 
 #include "ModelCompTypes.h"
 
@@ -15,6 +16,77 @@
 
 namespace blofeld
 {
+  // General container class:
+  template<typename value_type, CompCont cont_type, size_t n>
+  class Container
+  {
+    Container() = delete;
+  };
+  // TODO: change inheretence to composition???
+
+  // Specialisation for disabled:
+  template<typename value_type>
+  class Container<value_type, CompCont::disabled, 0>
+  {
+  public:
+    Container() = default;    
+    
+    int get()
+    {
+      return 1;
+    }
+    
+  };
+
+  // Specialisation for array - NOTE we inheret from array, but we will never hold this as a pointer so that's OK:
+  template<typename value_type, size_t n>
+  class Container<value_type, CompCont::array, n> : public std::array<value_type, n>
+  {
+  public:
+    Container()
+    {
+      this->fill(static_cast<value_type>(0));
+    }
+    
+    int get()
+    {
+      return 1;
+    }
+    
+  };
+
+  // Specialisation for inplace_vector:
+  template<typename value_type, size_t n>
+  class Container<value_type, CompCont::inplace_vector, n> : public std::array<value_type, n>
+  {
+  public:
+    Container()
+    {
+      static_assert(false, "CompCont::inplace_vector is not yet implemented");
+    }
+  };
+
+  // Specialisation for vector:
+  template<typename value_type, size_t n>
+  class Container<value_type, CompCont::vector, n> : public std::vector<value_type>
+  {
+  public:
+    Container()
+    {
+      static_assert(false, "CompCont::vector is not yet implemented");
+    }
+  };
+
+  // Specialisation for birth_death:
+  template<typename value_type>
+  class Container<value_type, CompCont::birth_death, 1>
+  {
+  public:
+    Container()
+    {
+      static_assert(false, "CompCont::birth_death is not yet implemented");
+    }
+  };
 
   template <auto s_cts, ModelType s_mtype, CompType s_ctype>
   class Compartment
@@ -32,6 +104,9 @@ namespace blofeld
         void
       >
     >;
+    static_assert(!std::is_same<ValueType, void>::value, "Unrecognised ModelType");
+    
+    Container<ValueType, s_ctype.compcont, s_ctype.n> m_ctr;  
 
     struct NoChecking
     {
@@ -179,6 +254,8 @@ namespace blofeld
       noexcept(!s_cts.debug)
       -> void
     {
+      m_bridge.println("{}", m_ctr.get());
+      
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
 
       for(int i=0; i<s_ctype.n; ++i)

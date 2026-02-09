@@ -44,14 +44,15 @@ The easiest way of demonstrating the principles (and advantages) of encapsulated
 
 We can use the new_compartment function to create a new compartment object, with the following options:
 
-- type: stochastic (value type int) or deterministic (value type double)
+- value_type: stochastic (value type int) or deterministic (value type double)
 - sub_compartments: a positive integer indicating the number of sub-compartments to use (0 is also allowed: see below)
-- container: one of auto, vector, array, or inplace-vector - this controls the underling C++ container type used for sub-compartments
+- carry_type: one of sequential or immediate - this controls the mechanism for carrying individuals through sub-compartments. With "sequential", carry-through can only happen sequentially between updates. With "immediate", it is possible for individuals to move through several sub-compartments in a single update, so the minimum time within a compartment is always 1 time point regardless of the number of sub-compartments. The first gives a delayed gamma distribution, the second is experimental and probably shouldn't be used until we have explored its properties a bit better (but it seems to give a slightly advanced gamma distribution). If the delta time used is small enough there is almost no difference between them anyway.
+- container: one of auto, disabled, array, inplace-vector, vector, or birth_death - this controls the underling C++ container type used for sub-compartments. If you don't know what this means, then just leave it as "auto".
 - validate: one of none, inputs, or all - this controls if nothing should be checked, if only input rates/values should be checked for validity, or if the internal values should also be checked for validity (i.e. non-negative).
 
 Note that not all options are available in combination using the pre-compiled options in the blofeld package - however you can compile your own compartment class with whichever options you need.
 
-Let's create a deterministic compartment with three sub-compartments, automatic container type, and full validation:
+Let's create a deterministic compartment with three sub-compartments, delayed carry type, automatic container type, and full validation:
 
 ```{r}
 

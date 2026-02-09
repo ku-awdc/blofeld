@@ -1,13 +1,15 @@
-#define R_NO_REMAP
+#ifndef R_NO_REMAP
+# define R_NO_REMAP
+#endif
+
 #include <Rcpp.h>
-#define R_NO_REMAP
+
+#ifndef R_NO_REMAP
+# define R_NO_REMAP
+#endif
+
 
 #include "blofeld.h"
-
-int test()
-{
-  return 1;
-}
 
 constexpr struct
 {
@@ -16,6 +18,9 @@ constexpr struct
   // using Bridge = blofeld::BridgeMT19937;
   using Bridge = blofeld::BridgeRcpp;
 } cts;
+
+using Comp_d01sa = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::deterministic, blofeld::component(1)>>;
+using Comp_d10sa = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::deterministic, blofeld::component(10, blofeld::CompCont::array, blofeld::CompCarry::sequential)>>;
 
 using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::deterministic,
   blofeld::component(1), // S
@@ -30,17 +35,12 @@ using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::deterministic,
 >;
 using Group = blofeld::GroupWrapper<cts, GroupType>;
 
-using Comp1 = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::deterministic, blofeld::component(1)>>;
-using Comp10 = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::deterministic, blofeld::component(10)>>;
-
-using Comp = Comp1;
+using Comp = Comp_d10sa;
 
 RCPP_MODULE(blofeld_module){
 
 	using namespace Rcpp;
 
-  function("test", &test);
-  
   class_<Comp>("Comp")
     .constructor()
     .property("sum", &Comp::get_sum, &Comp::set_sum)
@@ -48,6 +48,17 @@ RCPP_MODULE(blofeld_module){
     .method("process", &Comp::process)
     .method("update", &Comp::update)
     .method("insert", &Comp::insert)
+  ;
+  
+  class_<Group>("Group")
+    .constructor()
+    .method("update", &Group::update)
+    .method("get_parameters", &Group::get_parameters)
+    .method("set_parameters", &Group::set_parameters)
+    .method("get_full_state", &Group::get_full_state)
+    .method("get_state", &Group::get_state)
+    .method("set_state", &Group::set_state)
+    .property("external_infection", &Group::get_external_infection,  &Group::set_external_infection)
   ;
   
 }
