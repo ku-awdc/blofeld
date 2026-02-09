@@ -16,84 +16,101 @@
 
 namespace blofeld
 {
-  // General container class:
-  template<typename value_type, CompCont cont_type, size_t n>
-  class Container
-  {
-    Container() = delete;
-  };
-  // TODO: change inheretence to composition???
+  // Anonymous namespace to prevent these being used elsewhere (due to inheriting from array/vector):
+  namespace {
+    // General container class:
+    template<typename ValueType, CompCont cont_type, size_t s_n>
+    class Container
+    {
+      Container() = delete;
+      explicit Container(size_t const n) = delete;
+    };
+    // TODO: change inheretence to composition???
 
-  // Specialisation for disabled:
-  template<typename value_type>
-  class Container<value_type, CompCont::disabled, 0>
-  {
-  public:
-    Container() = default;    
+    // Specialisation for disabled:
+    template<typename ValueType>
+    class Container<ValueType, CompCont::disabled, 0>
+    {      
+    public:
+      using ReturnType = void;
+      
+      Container() = default;
+      
+      void fill([[maybe_unused]] ValueType const fill_value) const
+      {
+      }      
+      
+    };
+
+    // Specialisation for array is just a std::array
+    // NOTE: this may be evil, but we will never hold the std::array as a pointer...
+    template<typename ValueType, size_t n>
+    class Container<ValueType, CompCont::array, n> : public std::array<ValueType, n> {
+    public:
+      using ReturnType = std::array<ValueType, n>;
+      
+      Container()
+      {
+        this->fill(static_cast<ValueType>(0.0));
+      }
+      
+    };
+
+    // Specialisation for inplace_vector:
+    template<typename ValueType, size_t n>
+    class Container<ValueType, CompCont::inplace_vector, n> : public std::array<ValueType, n>
+    {
+    public:
+      Container()
+      {
+        static_assert(false, "CompCont::inplace_vector is not yet implemented");
+      }
+      
+    };
+
+    // Specialisation for vector:
+    template<typename ValueType, size_t s_n>
+    class Container<ValueType, CompCont::vector, s_n> : public std::vector<ValueType>
+    {
+      size_t m_n = 0;
+      
+    public:
+      Container()
+      {
+        resize(s_n);
+      }
+      
+      void resize(size_t const n)
+      {
+        this->resize(n, static_cast<value_type>(0.0));
+        m_n = n;        
+      }
+    };
+
+    // Specialisation for birth_death:
+    template<typename ValueType>
+    class Container<ValueType, CompCont::birth_death, 1>
+    {
+    private:
+      value_type m_value = static_cast<ValueType>(0.0);
+      
+    public:
+      Container()
+      {
+      }
+      
+      void fill(ValueType const fill_value)
+      {
+        m_value = fill_value;
+      }
+    };
     
-    int get()
-    {
-      return 1;
-    }
-    
-  };
-
-  // Specialisation for array - NOTE we inheret from array, but we will never hold this as a pointer so that's OK:
-  template<typename value_type, size_t n>
-  class Container<value_type, CompCont::array, n> : public std::array<value_type, n>
-  {
-  public:
-    Container()
-    {
-      this->fill(static_cast<value_type>(0));
-    }
-    
-    int get()
-    {
-      return 1;
-    }
-    
-  };
-
-  // Specialisation for inplace_vector:
-  template<typename value_type, size_t n>
-  class Container<value_type, CompCont::inplace_vector, n> : public std::array<value_type, n>
-  {
-  public:
-    Container()
-    {
-      static_assert(false, "CompCont::inplace_vector is not yet implemented");
-    }
-  };
-
-  // Specialisation for vector:
-  template<typename value_type, size_t n>
-  class Container<value_type, CompCont::vector, n> : public std::vector<value_type>
-  {
-  public:
-    Container()
-    {
-      static_assert(false, "CompCont::vector is not yet implemented");
-    }
-  };
-
-  // Specialisation for birth_death:
-  template<typename value_type>
-  class Container<value_type, CompCont::birth_death, 1>
-  {
-  public:
-    Container()
-    {
-      static_assert(false, "CompCont::birth_death is not yet implemented");
-    }
-  };
+  }
 
   template <auto s_cts, ModelType s_mtype, CompType s_ctype>
   class Compartment
   {
   private:
-
-    static_assert(s_ctype.n > 0, "Invalid .n in CompType (must be >0)");
 
     using ValueType = std::conditional_t<
       s_mtype == ModelType::deterministic,
@@ -106,60 +123,19 @@ namespace blofeld
     >;
     static_assert(!std::is_same<ValueType, void>::value, "Unrecognised ModelType");
     
-    Container<ValueType, s_ctype.compcont, s_ctype.n> m_ctr;  
-
-    struct NoChecking
-    {
-    };
-    struct Checking
-    {
-      ValueType balance = s_zero;
-    };
-    using CheckType = std::conditional_t<
-      s_cts.debug,
-      Checking,
-      NoChecking
-    >;
-    CheckType m_check;
-
-    // TODO: other container types
-    using ContainerType = std::conditional_t<
-      s_ctype.compcont == CompCont::array,
-      std::array<ValueType, s_ctype.n>,
-      std::conditional_t<
-        s_ctype.compcont == CompCont::vector,
-        std::vector<ValueType>,
-        std::array<ValueType, 1> //void
-      >
-    >;
-
-    using ChangesType = std::conditional_t<
-      s_ctype.compcont == CompCont::array,
-      std::array<ValueType, s_ctype.n+1>,
-      std::conditional_t<
-        s_ctype.compcont == CompCont::vector,
-        std::vector<ValueType>,
-        std::array<ValueType, 1> //void
-      >
-    >;
+    Container<ValueType, s_ctype.compcont, s_ctype.n> m_container;
+    Container<ValueType, s_ctype.compcont, s_ctype.n> m_current;
 
     static constexpr ValueType s_zero = static_cast<ValueType>(0);
-
-    ContainerType m_values { };
-    ChangesType m_changes { };
 
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
 
-    // TODO: only constexpr for certain container types
-    static constexpr int m_ncomps = s_ctype.n;
-
     auto check_compartments() const noexcept(!s_cts.debug)
       -> void
     {
+      /*
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
-
-      static_assert(s_ctype.n > 0, "Invalid .n in CompType");
 
       if constexpr (!s_cts.debug && s_ctype.n!=0U)
       {
@@ -169,10 +145,12 @@ namespace blofeld
       {
         m_bridge.stop("Negative s_ctype.n are not allowed, and values of 0 are not yet supported");
       }
+      */
     }
 
     void validate()
     {
+      /*
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
 
       if constexpr (s_mtype == ModelType::deterministic) {
@@ -189,6 +167,7 @@ namespace blofeld
       {
         m_bridge.stop("Number of compartments does not match between constructor and template parameter");
       };
+      */
     }
 
     Compartment() = delete;
@@ -197,6 +176,9 @@ namespace blofeld
     explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
+      m_container.fill(static_cast<ValueType>(0.0));
+      m_current = m_container;
+      
       validate();
       check_compartments();
     }
@@ -204,8 +186,10 @@ namespace blofeld
     Compartment(Bridge& bridge, double const value) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
-      validate();
       set_sum(value);
+      m_current = m_container;
+
+      validate();
       check_compartments();
     }
 
