@@ -1,14 +1,25 @@
 // clang++ -std=c++20 -Wall -pedantic -o test test.cpp
+// /opt/homebrew/bin/gcc-15 -std=c++20 -Wall -pedantic -o test test.cpp
 
 // TODO: sort out include order
 
+//#include "blofeld/groups/Container.h"
+#include "blofeld/groups/compartment_types.h"
+
+int main ()
+{
+  
+  
+  
+  return 0;
+}
+
+/*
 #include "blofeld/groups/Compartment.h"
 #include "blofeld/groups/SEIDRVMZgroup.h"
 
 #include "blofeld/utilities/BridgeCpp.h"
 #include "blofeld/utilities/ContainerFormatter.h"
-
-#include "blofeld/Rcpp_wrappers/GroupWrapper.h"
 
 int main(int argc, char *argv[])
 {
@@ -89,3 +100,5 @@ int main(int argc, char *argv[])
   
   return 0;
 }
+
+*/
