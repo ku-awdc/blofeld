@@ -128,7 +128,7 @@ namespace blofeld
     double m_external_infection = 0.0;
 
     // Do we have death?
-    static constexpr size_t s_psd = [](){
+    static constexpr std::size_t s_psd = [](){
       if constexpr (s_have_death) {
         return 1;
       } else {
@@ -137,7 +137,7 @@ namespace blofeld
     }();
 
     // The expected array size from process_rate for non-EID compartments:
-    static constexpr size_t s_psv = [](){
+    static constexpr std::size_t s_psv = [](){
       if constexpr (s_have_vacc) {
         return s_psd+1;
       } else {
@@ -146,7 +146,7 @@ namespace blofeld
     }();
 
     // The expected array size from process_rate for EID compartments:
-    static constexpr size_t s_psm = [](){
+    static constexpr std::size_t s_psm = [](){
       if constexpr (s_have_mort) {
         return s_psd+1;
       } else {

@@ -3,6 +3,7 @@
 
 #include <array>
 #include <vector>
+#include <stdexcept>
 
 #include "./compartment_types.h"
 
@@ -15,22 +16,20 @@ namespace blofeld
   namespace internal {
     
     // General container class:
-    template<typename Value, ContainerType k_cont_type, int k_n>
+    template<typename Value, ContainerType s_cont_type, int s_n>
     class Container
     {
       Container() = delete; //("Failed to match valid container type");
     };
 
-    // Specialisation for disabled:
+    // Specialisation for disabled is just a std::array with size 0:
     template<typename Value>
-    class Container<Value, ContainerType::Disabled, 0>
+    class Container<Value, ContainerType::Disabled, 0> : public std::array<Value, 0>
     {      
     public:
-      using ReturnType = std::vector<Value>; // void??
+      using ReturnType = std::array<Value, 0>;
       
-      Container() = default;
-      
-      static consteval void fill(Value const) noexcept
+      static constexpr void zero() noexcept
       {
         // Do nothing
       }
@@ -44,15 +43,20 @@ namespace blofeld
     };
 
     // Specialisation for array is just a std::array
-    template<typename Value, int k_n>
-    class Container<Value, ContainerType::Array, k_n> : public std::array<Value, k_n>
+    template<typename Value, int s_n>
+    class Container<Value, ContainerType::Array, s_n> : public std::array<Value, s_n>
     {
     public:
-      using ReturnType = std::array<Value, k_n>;
+      using ReturnType = std::array<Value, s_n>;
       
       Container()
       {
-        static_assert(k_n > 0, "Invalid k_n <= 0 for Container<ContainerType::Array>");
+        static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::Array>");
+        this->fill(static_cast<Value>(0.0));
+      }
+            
+      void zero() noexcept
+      {
         this->fill(static_cast<Value>(0.0));
       }
       
@@ -67,32 +71,80 @@ namespace blofeld
     };
 
     // Specialisation for inplace_vector:
-    template<typename Value, int k_n>
-    class Container<Value, ContainerType::InplaceVector, k_n> : public Container<Value, ContainerType::Array, k_n>
+    template<typename Value, int s_n>
+    class Container<Value, ContainerType::InplaceVector, s_n> : public Container<Value, ContainerType::Array, s_n>
     {
     private:
-      int m_n = k_n;
+      int m_n = s_n;
       // Note: clang complains without the (unneccessary) const here:
-      static constexpr int const& k_max = k_n;
+      static constexpr int const& s_max = s_n;
       
     public:
       using ReturnType = std::vector<Value>;
       
       Container()
       {
-        static_assert(false, "ContainerType::InplaceVector is not yet implemented");
+        this->zero();
+        resize(static_cast<std::size_t>(s_n)); // Unnecessary: static_cast<Value>(0.0));
+      }
+      
+      void resize(int const n)
+      {
+        if (n > s_max) throw std::invalid_argument("Attempt to set n > maxSize() in Container<ContainerType::InplaceVector>.resize()");
+        m_n = n;
+      }
+      
+      auto size() const noexcept
+        -> std::size_t
+      {
+        return static_cast<std::size_t>(m_n);
+      }
+      
+      static constexpr auto max() noexcept
+      {
+        return s_max;
+      }
+      
+      // Temporary until we have C++26 inplace_vector:
+      auto end() noexcept
+      {
+        auto ptr = this->begin();
+        return ptr+m_n;
+      }
+      auto end() const noexcept
+      {
+        auto ptr = this->cbegin();
+        return ptr+m_n;
+      }      
+      auto cend() const noexcept
+      {
+        return end();
+      }      
+      template <typename T>
+      void swap(T)
+      {
+        throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I swap my implementation for C++26 inplace_vector)");
+      }      
+      void back()
+      {
+        throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I swap my implementation for C++26 inplace_vector)");
       }
       
     };
 
     // Specialisation for vector:
-    template<typename Value, int k_n>
-    class Container<Value, ContainerType::Vector, k_n> : public std::vector<Value>
+    template<typename Value, int s_n>
+    class Container<Value, ContainerType::Vector, s_n> : public std::vector<Value>
     {
     public:
       Container()
       {
-        this->resize(static_cast<std::size_t>(k_n)); // Unnecessary: static_cast<Value>(0.0));
+        this->resize(static_cast<std::size_t>(s_n)); // Unnecessary: static_cast<Value>(0.0));
+      }
+      
+      void zero() noexcept
+      {
+        for (auto& val : (*this)) val = static_cast<Value>(0.0);
       }
       
       auto validate() const noexcept

@@ -261,7 +261,7 @@ namespace blofeld
     }
     */
 
-    template<size_t s_ntake>
+    template<std::size_t s_ntake>
     [[nodiscard]] auto process_rate(double carry_rate, std::array<double, s_ntake> const& take_rate)
       -> auto
     {
@@ -288,7 +288,7 @@ namespace blofeld
 
     }
 
-    template<size_t s_ntake>
+    template<std::size_t s_ntake>
     [[nodiscard]] auto process_prop(double const carry_prop, std::array<double, s_ntake> const& take_prop)
       -> auto
     {

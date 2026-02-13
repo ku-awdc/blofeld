@@ -1,6 +1,8 @@
 #ifndef BLOFELD_BRIDGE_H
 #define BLOFELD_BRIDGE_H
 
+#include <string_view>
+
 namespace blofeld
 {
 

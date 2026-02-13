@@ -6,7 +6,9 @@
 //#include "blofeld/groups/compartment_types.h"
 #include "blofeld/groups/container.h"
 
-//#include "blofeld/utilities/bridge_cpp.h"
+//#include "blofeld/utilities/bridge.h"
+#include "blofeld/utilities/bridge_cpp.h"
+#include "blofeld/utilities/container_formatter.h"
 
 int main ()
 {
@@ -14,6 +16,23 @@ int main ()
   constexpr auto ci = blofeld::compartment_info(1, blofeld::ContainerType::BirthDeath);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
   ctr.validate();
+//  ctr.resize(2);
+  
+  struct CompileTimeSettings
+  {
+    bool const debug = true;
+    double const tol = 0.00001;
+    using Bridge = blofeld::BridgeMT19937;
+  };
+  
+  using Bridge = CompileTimeSettings::Bridge;
+  Bridge bridge;
+  
+  bridge.println( "A container: {}", ctr );
+  
+  bridge.println( "A vector: {}", std::vector{1} );
+  bridge.println( "An array: {}", std::array<int,0>{} );
+  
   
   return 0;
 }

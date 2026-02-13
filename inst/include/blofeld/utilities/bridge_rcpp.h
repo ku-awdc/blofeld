@@ -1,10 +1,13 @@
 #ifndef BLOFELD_BRIDGE_RCPP_H
 #define BLOFELD_BRIDGE_RCPP_H
 
+#include <format>
+#include <iostream>
+
 #include <Rcpp.h>
 #define R_NO_REMAP
 
-#include "Bridge.h"
+#include "./bridge.h"
 
 namespace blofeld
 {
@@ -61,6 +64,12 @@ namespace blofeld
     auto rmultinom(int n, std::array<double, s_size> const& prob)
       -> std::array<int, s_size+1>
     {
+      if constexpr (s_size == 0U)
+      {
+        std::array<int, 1> rv{ n };
+        return rv;
+      }
+      
       // TODO: check sum(prob)<=1
 
       std::array<int, s_size+1> rv{};
@@ -78,16 +87,6 @@ namespace blofeld
     }
 
   };
-
-// gcc doesn't like this defined within the class:
-template<>
-inline auto BridgeRcpp::rmultinom<0>(int total, std::array<double, 0> const& probs)
-  -> std::array<int, 1>
-  {
-    std::array<int, 1> rv{ total };
-    return rv;
-  }
-
 
 } //blofeld
 
