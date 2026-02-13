@@ -7,8 +7,8 @@
 #include <typeinfo>
 #include <type_traits>
 
-#include "./Compartment.h"
-#include "./ModelCompTypes.h"
+#include "./compartment_types.h"
+#include "./container.h"
 
 //
 

@@ -1,15 +1,19 @@
 // clang++ -std=c++20 -Wall -pedantic -o test test.cpp
-// /opt/homebrew/bin/gcc-15 -std=c++20 -Wall -pedantic -o test test.cpp
+// gcc-15 -std=c++20 -stdlib=libstdc++ -Wall -pedantic /opt/homebrew/lib/gcc/current/libstdc++.a -o test test.cpp
 
 // TODO: sort out include order
 
-//#include "blofeld/groups/Container.h"
-#include "blofeld/groups/compartment_types.h"
+//#include "blofeld/groups/compartment_types.h"
+#include "blofeld/groups/container.h"
+
+//#include "blofeld/utilities/bridge_cpp.h"
 
 int main ()
 {
   
-  
+  constexpr auto ci = blofeld::compartment_info(1, blofeld::ContainerType::BirthDeath);
+  auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
+  ctr.validate();
   
   return 0;
 }
