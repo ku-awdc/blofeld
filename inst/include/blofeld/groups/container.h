@@ -13,6 +13,25 @@ namespace blofeld
   // This should not be used externally as inheriting from std::array etc invites misuse
   // NOTE: this may be evil, but we will never hold the std::array as a pointer...
   
+  // TODO: implement ssize where needed
+  
+  // TODO: make this more robust
+  template<typename T>
+  concept Container = requires(T x)
+  {
+    { x.size() } -> std::same_as<std::size_t>;
+  };
+  
+  template<typename T>
+  concept Resizeable = Container<T> && requires(T x)
+  {
+    { x.resize(0) } -> std::same_as<void>;
+  };
+
+  template<typename T>
+  concept Fixedsize = Container<T> && !Resizeable<T>;
+  
+  
   namespace internal {
     
     // General container class:
@@ -34,10 +53,16 @@ namespace blofeld
         // Do nothing
       }
       
-      static constexpr auto validate() noexcept
+      [[nodiscard]] static constexpr auto validate() noexcept
         -> bool
       {
         return true;
+      }
+
+      [[nodiscard]] static constexpr auto isActive() noexcept
+        -> bool
+      {
+        return false;
       }
       
     };
@@ -60,13 +85,19 @@ namespace blofeld
         this->fill(static_cast<Value>(0.0));
       }
       
-      auto validate() const noexcept
+      [[nodiscard]] auto validate() const noexcept
         -> bool
       {
         bool valid = true;
         for (auto const& val : (*this)) valid = valid && val >= static_cast<Value>(0.0);
         return valid;
       }
+      
+      [[nodiscard]] static constexpr auto isActive() noexcept
+        -> bool
+      {
+        return true;
+      }      
       
     };
 
@@ -94,16 +125,28 @@ namespace blofeld
         m_n = n;
       }
       
-      auto size() const noexcept
+      [[nodiscard]] auto size() const noexcept
         -> std::size_t
       {
         return static_cast<std::size_t>(m_n);
       }
+
+      [[nodiscard]] auto ssize() const noexcept
+        -> int
+      {
+        return m_n;
+      }
       
-      static constexpr auto max() noexcept
+      [[nodiscard]] static constexpr auto max() noexcept
       {
         return s_max;
       }
+
+      [[nodiscard]] auto isActive() const noexcept
+        -> bool
+      {
+        return (size() > 0U);
+      }      
       
       // Temporary until we have C++26 inplace_vector:
       auto end() noexcept
@@ -147,13 +190,19 @@ namespace blofeld
         for (auto& val : (*this)) val = static_cast<Value>(0.0);
       }
       
-      auto validate() const noexcept
+      [[nodiscard]] auto validate() const noexcept
         -> bool
       {
         bool valid = true;
         for (auto const& val : (*this)) valid = valid && val >= static_cast<Value>(0.0);
         return valid;
       }
+      
+      [[nodiscard]] auto isActive() const noexcept
+        -> bool
+      {
+        return (this->size() > 0U);
+      }      
       
     };
 
@@ -164,7 +213,7 @@ namespace blofeld
     public:
       
       // Trivial - all values are valid (except NaN??)
-      static constexpr auto validate() noexcept
+      [[nodiscard]] static constexpr auto validate() noexcept
         -> bool
       {
         return true;

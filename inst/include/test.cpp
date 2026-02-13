@@ -10,12 +10,17 @@
 #include "blofeld/utilities/bridge_cpp.h"
 #include "blofeld/utilities/container_formatter.h"
 
+//#include "blofeld/groups/compartment.h"
+
+#include <concepts>
+
+
 int main ()
 {
   
   constexpr auto ci = blofeld::compartment_info(1, blofeld::ContainerType::BirthDeath);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
-  ctr.validate();
+//  ctr.validate();
 //  ctr.resize(2);
   
   struct CompileTimeSettings
@@ -27,6 +32,20 @@ int main ()
   
   using Bridge = CompileTimeSettings::Bridge;
   Bridge bridge;
+  
+  std::array arr {1, 2, 3};
+  std::vector vec {4, 5, 6};
+  
+  //if constexpr (isFixedSize<decltype(arr)>)
+  if constexpr (blofeld::Container<decltype(arr)> && blofeld::Fixedsize<decltype(arr)>)
+  {
+    bridge.println( "is fixed size: {}", arr);
+  }
+
+  if constexpr (blofeld::Container<decltype(arr)> && blofeld::Resizeable<decltype(vec)>)
+  {
+    bridge.println( "is resizeable: {}", vec);
+  }
   
   bridge.println( "A container: {}", ctr );
   

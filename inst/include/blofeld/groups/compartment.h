@@ -10,39 +10,33 @@
 #include "./compartment_types.h"
 #include "./container.h"
 
-//
-
-// TODO: should take/carry be immediate?  So only insert is done on delay?
-// TODO: allow s_ctype.n = 0 in which case it is set at run time
-
 namespace blofeld
 {
 
-  template <auto s_cts, ModelType s_mtype, CompType s_ctype>
+  template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
   class Compartment
   {
   private:
 
-    using ValueType = std::conditional_t<
-      s_mtype == ModelType::deterministic,
+    using Value = std::conditional_t<
+      s_mtype == ModelType::Deterministic,
       double,
       std::conditional_t<
-        s_mtype == ModelType::stochastic,
+        s_mtype == ModelType::Stochastic,
         int,
         void
       >
     >;
-    static_assert(!std::is_same<ValueType, void>::value, "Unrecognised ModelType");
+    static_assert(!std::is_same<Value, void>::value, "Unrecognised ModelType");
     
-    Container<ValueType, s_ctype.compcont, s_ctype.n> m_container;
-    Container<ValueType, s_ctype.compcont, s_ctype.n> m_current;
-
-    static constexpr ValueType s_zero = static_cast<ValueType>(0);
+    internal::Container<Value, s_cinfo.container_type, s_cinfo.n> m_working;
+    internal::Container<Value, s_cinfo.container_type, s_cinfo.n> m_current;
 
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
 
-    auto check_compartments() const noexcept(!s_cts.debug)
+
+    auto checkCompartments() const noexcept(!s_cts.debug)
       -> void
     {
       /*
@@ -61,13 +55,16 @@ namespace blofeld
 
     void validate()
     {
+      
+      checkCompartments();
+      
       /*
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
 
       if constexpr (s_mtype == ModelType::deterministic) {
-        static_assert(std::is_same<ValueType, double>::value, "ValueType should be double for determinstic models");
+        static_assert(std::is_same<Value, double>::value, "Value should be double for determinstic models");
       } else if constexpr (s_mtype == ModelType::stochastic) {
-        static_assert(std::is_same<ValueType, int>::value, "ValueType should be int for determinstic models");
+        static_assert(std::is_same<Value, int>::value, "Value should be int for determinstic models");
       } else {
         static_assert(false, "Unrecognised ModelType");
       }
@@ -87,68 +84,104 @@ namespace blofeld
     explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
-      m_container.fill(static_cast<ValueType>(0.0));
-      m_current = m_container;
-      
       validate();
-      check_compartments();
     }
 
-    Compartment(Bridge& bridge, double const value) noexcept(!s_cts.debug)
+    Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
-      set_sum(value);
-      m_current = m_container;
-
+      setSum(total);
       validate();
-      check_compartments();
     }
 
-    static constexpr auto is_active()
+    [[nodiscard]] constexpr auto isActive() const noexcept
       -> bool
     {
-      return s_ctype.is_active();
+      return m_current.isActive();
     }
 
-    auto size() const
+    [[nodiscard]] constexpr auto ssize() const noexcept
+      -> int
+    {
+      return m_current.size();
+    }
+
+    [[nodiscard]] constexpr auto size() const noexcept
       -> std::size_t
     {
-      if constexpr (s_ctype.compcont == CompCont::disabled) return 0;
-
-      return s_ctype.n;
+      return m_current.size();
+    }
+    
+    // Only for Vector and InplaceVector:
+    void resize(int const n)
+    {
+      if constexpr (!Resizeable<decltype(m_current)>) {
+        // ERROR
+      }
+      // TODO: checks first (also for n >= 0 and n <= max for InplaceVector)
+      // if constexpr (!)
     }
 
+    // Get and set total:
+    [[nodiscard]] auto getTotal() const noexcept
+      -> Value
+    {
+      return std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0.0));
+    }
+    void setTotal(Value const total)
+    {
+      // TODO
+    }
+
+    // Required for this to work as a container for printing as well as getting/setting sub-compartments:
     auto begin() noexcept
     {
-      return m_values.begin();
+      return m_current.begin();
     }
     auto end() noexcept
     {
-      return m_values.end();
+      return m_current.end();
     }
 
     auto begin() const noexcept
     {
-      return m_values.begin();
+      return m_current.begin();
     }
     auto end() const noexcept
     {
-      return m_values.end();
+      return m_current.end();
     }
 
     auto cbegin() const noexcept
     {
-      return m_values.cbegin();
+      return m_current.cbegin();
     }
     auto cend() const noexcept
     {
-      return m_values.end();
+      return m_current.end();
+    }
+
+
+    // Remove from all subcompartments:
+    // TODO: constrain T to be a std::array or std::vector
+    template <Container T>
+    T removeProportion(T props)
+    {
+      
+    }
+    Value removeRate(double rate)
+    {
+      if constexpr (!Resizeable<T> && props.ssize()==1) {
+        Value prop = rateToProp(1.0 - std::exp(-rate));
+        return removeProportion(prop);
+      }
     }
 
     auto apply_changes()
       noexcept(!s_cts.debug)
       -> void
     {
+      /*
       m_bridge.println("{}", m_ctr.get());
       
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
@@ -176,6 +209,7 @@ namespace blofeld
 
       // m_changes has an extra value:
       m_changes[m_changes.size()-1] = s_zero;
+      */
     }
     
     [[nodiscard]] auto get_values() const
@@ -184,9 +218,8 @@ namespace blofeld
       return m_values;
     }
 
-    [[nodiscard]] auto get_sum()
-      const noexcept(!s_cts.debug)
-      -> ValueType
+    [[nodiscard]] auto get_sum() const noexcept(!s_cts.debug)
+      -> Value
     {
       if constexpr (s_ctype.compcont == CompCont::disabled) return 0;
 
@@ -194,8 +227,7 @@ namespace blofeld
       return rv;
     }
 
-    auto set_sum(ValueType const value, bool const distribute = true) noexcept(!s_cts.debug)
-      -> void
+    void set_sum(Value const value, bool const distribute = true) noexcept(!s_cts.debug)
     {
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
 
@@ -213,7 +245,7 @@ namespace blofeld
           {
             pp = 1.0 / s_ctype.n;
           }
-          std::array<ValueType, s_ctype.n> const
+          std::array<Value, s_ctype.n> const
             inits = m_bridge.rmultinom(value, probs);
           for (int i=0; i<s_ctype.n; ++i)
           {
@@ -298,7 +330,7 @@ namespace blofeld
       // TODO: implement take_prop
 	  // TODO: this is NOT accounting for n, as process_rate has already done that
 
-      std::array<ValueType, s_ntake> taken {};
+      std::array<Value, s_ntake> taken {};
 
       if constexpr (s_mtype==ModelType::deterministic)
       {
@@ -329,7 +361,7 @@ namespace blofeld
 
         for (int i=0; i<s_ctype.n; ++i)
         {
-          std::array<ValueType, s_ntake+2> const
+          std::array<Value, s_ntake+2> const
             cc = m_bridge.rmultinom(m_values[i], probs);
           static_assert(cc.size() == taken.size()+2);
 
@@ -349,7 +381,7 @@ namespace blofeld
       if constexpr (s_cts.debug){
         for (auto val : m_values)
         {
-          if(val < static_cast<ValueType>(0))
+          if(val < static_cast<Value>(0))
           {
             m_bridge.stop("Applying changes caused a negative value");
           }
@@ -359,8 +391,8 @@ namespace blofeld
       // TODO: make this a concrete type with bounds-checked accessor for take
       struct
       {
-        ValueType carry;
-        std::array<ValueType, s_ntake> take;
+        Value carry;
+        std::array<Value, s_ntake> take;
       } rv { m_changes[m_changes.size()-1], taken };
 
       return rv;
@@ -400,7 +432,7 @@ namespace blofeld
     }
     */
 
-    auto insert_value_start(ValueType const value)
+    auto insert_value_start(Value const value)
       noexcept(!s_cts.debug)
       -> void
     {
@@ -425,10 +457,10 @@ namespace blofeld
       return m_values;
     }
 
-    // Note: unusual + overloads return ValueType
-    [[nodiscard]] auto operator+(ValueType const sum)
+    // Note: unusual + overloads return Value
+    [[nodiscard]] auto operator+(Value const sum)
       const noexcept(!s_cts.debug)
-        -> ValueType
+        -> Value
     {
       return sum + get_sum();
     }
@@ -436,7 +468,7 @@ namespace blofeld
     template <auto scts, ModelType sm, CompType sc>
     [[nodiscard]] auto operator+(Compartment<scts, sm, sc> const& obj)
       const noexcept(!s_cts.debug)
-        -> ValueType
+        -> Value
     {
       return obj.get_sum() + get_sum();
     }
@@ -447,8 +479,8 @@ namespace blofeld
   [[nodiscard]] auto operator+(T const sum, Compartment<scts, sm, sc> const& obj)
     -> T
   {
-    using T2 = decltype(obj)::ValueType;
-    static_assert(std::is_same<T, T2>::value, "Inconsistent ValueType when summing compartments");
+    using T2 = decltype(obj)::Value;
+    static_assert(std::is_same<T, T2>::value, "Inconsistent Value when summing compartments");
 
     return sum + obj.get_sum();
   }
@@ -457,8 +489,8 @@ namespace blofeld
   [[nodiscard]] auto operator+(Compartment<scts, sm, sc> const& obj, T const sum)
     -> T
   {
-    using T2 = decltype(obj)::ValueType;
-    static_assert(std::is_same<T, T2>::value, "Inconsistent ValueType when summing compartments");
+    using T2 = decltype(obj)::Value;
+    static_assert(std::is_same<T, T2>::value, "Inconsistent Value when summing compartments");
 
     return sum + obj.get_sum();
   }
