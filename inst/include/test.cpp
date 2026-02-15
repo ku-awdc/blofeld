@@ -18,7 +18,7 @@
 int main ()
 {
   
-  constexpr auto ci = blofeld::compartment_info(1, blofeld::ContainerType::Vector);
+  constexpr auto ci = blofeld::compartment_info(50, blofeld::ContainerType::InplaceVector);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
 
   struct CompileTimeSettings

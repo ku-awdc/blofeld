@@ -30,6 +30,12 @@ namespace blofeld
   };
 
   template<typename T>
+  concept Maxsize = Container<T> && (!Resizeable<T> || requires(T x)
+  {
+    { x.maxSize() } -> std::convertible_to<int>;
+  });
+
+  template<typename T>
   concept Fixedsize = Container<T> && !Resizeable<T>;
   
   
@@ -236,24 +242,14 @@ namespace blofeld
 // clang complains if we define std::ssize out of line:
 namespace std
 {
-  // Function overloads for free-function std::ssize:
+  // Function overload for free-function std::ssize:
   template <blofeld::internal::BlofeldContainer C>
   constexpr auto ssize(const C& c)
-    -> int
+    -> std::ptrdiff_t // the common type of std::ptrdiff_t and int, which is returned by ssize()
   {
-    return c.ssize();
-  }
-  
-  // Alternative but we know int is always good enough:
-  /*
-  template <blofeld::internal::BlofeldContainer C>
-  constexpr auto ssize(const C& c)
-    -> std::ptrdiff_t // the common type of std::ptrdiff_t and int
-  {
-    // Cast from int:
+    // Explicit cast from int:
     return static_cast<std::ptrdiff_t>(c.ssize());
   }
-  */
 }
 
 #endif // BLOFELD_CONTAINER_H

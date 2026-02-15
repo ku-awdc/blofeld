@@ -12,7 +12,7 @@ namespace blofeld
   namespace internal
   {
     // Generic formatter for container types:
-    template<typename C>
+    template<class C>
     class ContainerFormatter : public std::formatter<int>
     {
     public:
@@ -24,9 +24,24 @@ namespace blofeld
       auto format(C const& ctr, std::format_context& context) const
       {
         auto out = context.out();
+        out = std::format_to(out, "[");        
+        
+        if constexpr (BlofeldContainer<C>) {
+          out = std::format_to(out, "BF ");
+        }
+        if constexpr (Resizeable<C>) {
+          if constexpr (Maxsize<C>) {
+            out = std::format_to(out, "Semi-resizeable container: ");
+          } else {
+            out = std::format_to(out, "Resizeable container: ");            
+          }
+        } else {
+          out = std::format_to(out, "Fixed-size container: ");
+        }
+        
         // TODO: show container size not contents if e.g. C.size()>10
         //out = std::format_to(out, "[s:{},", ctr.size());
-        out = std::format_to(out, "[");
+        //out = std::format_to(out, "[");
         for (auto vv : ctr) {
           out = std::format_to(out, "{},", vv);
         }
