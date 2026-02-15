@@ -13,7 +13,8 @@ namespace blofeld
   // This should not be used externally as inheriting from std::array etc invites misuse
   // NOTE: this may be evil, but we will never hold the std::array as a pointer...
   
-  // TODO: implement ssize where needed
+  // TODO: ssize is a free function not a member function - implement function specialisations
+  // TODO: empty() for InplaceVector
   
   // TODO: make this more robust
   template<typename T>
@@ -34,6 +35,13 @@ namespace blofeld
   
   namespace internal {
     
+    template<typename T>
+    concept BlofeldContainer = Container<T> && requires(T x)
+    {
+      { x.isActive() } -> std::same_as<bool>;
+      { x.ssize() } -> std::same_as<int>;
+    };
+    
     // General container class:
     template<typename Value, ContainerType s_cont_type, int s_n>
     class Container
@@ -53,12 +61,12 @@ namespace blofeld
         // Do nothing
       }
       
-      [[nodiscard]] static constexpr auto validate() noexcept
-        -> bool
+      [[nodiscard]] static constexpr auto ssize() noexcept
+        -> int
       {
-        return true;
+        return 0;
       }
-
+      
       [[nodiscard]] static constexpr auto isActive() noexcept
         -> bool
       {
@@ -67,7 +75,7 @@ namespace blofeld
       
     };
 
-    // Specialisation for array is just a std::array
+    // Specialisation for array (n>0) is just a std::array
     template<typename Value, int s_n>
     class Container<Value, ContainerType::Array, s_n> : public std::array<Value, s_n>
     {
@@ -77,7 +85,7 @@ namespace blofeld
       Container()
       {
         static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::Array>");
-        this->fill(static_cast<Value>(0.0));
+        zero();
       }
             
       void zero() noexcept
@@ -85,14 +93,12 @@ namespace blofeld
         this->fill(static_cast<Value>(0.0));
       }
       
-      [[nodiscard]] auto validate() const noexcept
-        -> bool
+      [[nodiscard]] static constexpr auto ssize() noexcept
+        -> int
       {
-        bool valid = true;
-        for (auto const& val : (*this)) valid = valid && val >= static_cast<Value>(0.0);
-        return valid;
+        return s_n;
       }
-      
+            
       [[nodiscard]] static constexpr auto isActive() noexcept
         -> bool
       {
@@ -105,7 +111,7 @@ namespace blofeld
     template<typename Value, int s_n>
     class Container<Value, ContainerType::InplaceVector, s_n> : public Container<Value, ContainerType::Array, s_n>
     {
-    private:
+    private:      
       int m_n = s_n;
       // Note: clang complains without the (unneccessary) const here:
       static constexpr int const& s_max = s_n;
@@ -115,6 +121,8 @@ namespace blofeld
       
       Container()
       {
+        static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::InplaceVector>");
+        
         this->zero();
         resize(static_cast<std::size_t>(s_n)); // Unnecessary: static_cast<Value>(0.0));
       }
@@ -137,7 +145,7 @@ namespace blofeld
         return m_n;
       }
       
-      [[nodiscard]] static constexpr auto max() noexcept
+      [[nodiscard]] static constexpr auto maxSize() noexcept
       {
         return s_max;
       }
@@ -182,7 +190,7 @@ namespace blofeld
     public:
       Container()
       {
-        this->resize(static_cast<std::size_t>(s_n)); // Unnecessary: static_cast<Value>(0.0));
+        resize(s_n);
       }
       
       void zero() noexcept
@@ -190,12 +198,18 @@ namespace blofeld
         for (auto& val : (*this)) val = static_cast<Value>(0.0);
       }
       
-      [[nodiscard]] auto validate() const noexcept
-        -> bool
+      // Overloading this ensures we can't request a size that's bigger than max int:
+      void resize(int const n)
       {
-        bool valid = true;
-        for (auto const& val : (*this)) valid = valid && val >= static_cast<Value>(0.0);
-        return valid;
+        if (n < 0) throw std::invalid_argument("Attempt to set n < 0 in Container<ContainerType::Vector>.resize()");
+        std::vector<Value>::resize(static_cast<std::size_t>(n));  // Default second argument: static_cast<Value>(0.0));        
+      }
+      
+      [[nodiscard]] auto ssize() const noexcept
+        -> int
+      {
+        // Guaranteed to fit into an int as we overloaded resize:
+        return static_cast<int>(this->size());
       }
       
       [[nodiscard]] auto isActive() const noexcept
@@ -206,23 +220,40 @@ namespace blofeld
       
     };
 
-    // Specialisation for BirthDeath - same as array, except no check for non-negative
+    // Specialisation for BirthDeath is same as for array:
     template<typename Value>
-    class Container<Value, ContainerType::BirthDeath, 1> : public Container<Value, ContainerType::Array, 1>
-    {
-    public:
-      
-      // Trivial - all values are valid (except NaN??)
-      [[nodiscard]] static constexpr auto validate() noexcept
-        -> bool
-      {
-        return true;
-      }
-      
-    };
+    class Container<Value, ContainerType::BirthDeath, 1> : public Container<Value, ContainerType::Array, 1> {};
     
+    // Not valid but e.g. ContainerBirthDeath = Container<Value, ContainerType::Array, 1> would be:
+    // template<typename Value>
+    // using Container<Value, ContainerType::BirthDeath, 1> = Container<Value, ContainerType::Array, 1>;
+        
   } // namespace internal
 
 } // namespace blofeld
+
+
+// clang complains if we define std::ssize out of line:
+namespace std
+{
+  // Function overloads for free-function std::ssize:
+  template <blofeld::internal::BlofeldContainer C>
+  constexpr auto ssize(const C& c)
+    -> int
+  {
+    return c.ssize();
+  }
+  
+  // Alternative but we know int is always good enough:
+  /*
+  template <blofeld::internal::BlofeldContainer C>
+  constexpr auto ssize(const C& c)
+    -> std::ptrdiff_t // the common type of std::ptrdiff_t and int
+  {
+    // Cast from int:
+    return static_cast<std::ptrdiff_t>(c.ssize());
+  }
+  */
+}
 
 #endif // BLOFELD_CONTAINER_H

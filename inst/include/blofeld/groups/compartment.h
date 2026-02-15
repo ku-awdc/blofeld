@@ -100,17 +100,21 @@ namespace blofeld
       return m_current.isActive();
     }
 
-    [[nodiscard]] constexpr auto ssize() const noexcept
-      -> int
-    {
-      return m_current.size();
-    }
-
     [[nodiscard]] constexpr auto size() const noexcept
       -> std::size_t
     {
       return m_current.size();
     }
+    
+    [[nodiscard]] auto validate() const noexcept
+      -> bool
+    {
+      // TODO: except for BirthDeath
+      bool valid = true;
+      for (auto const& val : (*this)) valid = valid && val >= static_cast<Value>(0.0);
+      return valid;
+    }
+    
     
     // Only for Vector and InplaceVector:
     void resize(int const n)

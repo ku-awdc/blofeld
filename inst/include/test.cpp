@@ -18,11 +18,9 @@
 int main ()
 {
   
-  constexpr auto ci = blofeld::compartment_info(1, blofeld::ContainerType::BirthDeath);
+  constexpr auto ci = blofeld::compartment_info(1, blofeld::ContainerType::Vector);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
-//  ctr.validate();
-//  ctr.resize(2);
-  
+
   struct CompileTimeSettings
   {
     bool const debug = true;
@@ -32,7 +30,16 @@ int main ()
   
   using Bridge = CompileTimeSettings::Bridge;
   Bridge bridge;
+
+  ctr.resize(2);
+  bridge.println("{}, ssize: {}", ctr, std::ssize(ctr));
   
+  ctr.resize(20);
+  bridge.println("{}", ctr);
+
+  ctr.resize(0);
+  bridge.println("{}", ctr);
+
   std::array arr {1, 2, 3};
   std::vector vec {4, 5, 6};
   
