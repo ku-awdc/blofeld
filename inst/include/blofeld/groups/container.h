@@ -250,6 +250,9 @@ namespace blofeld
     // Not valid but e.g. ContainerBirthDeath = Container<Value, ContainerType::Array, 1> would be:
     // template<typename Value>
     // using Container<Value, ContainerType::BirthDeath, 1> = Container<Value, ContainerType::Array, 1>;
+    // Partial specialisation of templates is not allowed:
+    // template<typename Value>
+    // using typename Container<Value, ContainerType::BirthDeath, 1> = Container<Value, ContainerType::Array, 1>;
         
   } // namespace internal
 
