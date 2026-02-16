@@ -10,23 +10,8 @@
 #include "blofeld/utilities/bridge_cpp.h"
 #include "blofeld/utilities/container_formatter.h"
 
-//#include "blofeld/groups/compartment.h"
+#include "blofeld/groups/compartment.h"
 
-#include <concepts>
-
-template<bool s_active>
-struct MaybeBool;
-
-template<>
-struct MaybeBool<false>
-{
-};
-
-template<>
-struct MaybeBool<true>
-{
-  bool value = false;
-};
 
 int main ()
 {
@@ -44,9 +29,9 @@ int main ()
   using Bridge = CompileTimeSettings::Bridge;
   Bridge bridge;
   
-  [[maybe_unused]] MaybeBool<false> v2;
+  [[maybe_unused]] blofeld::internal::MaybeBool<false> v2;
   // Note: needed for clang, but not gcc:
-  [[maybe_unused]] MaybeBool<true> v1;
+  [[maybe_unused]] blofeld::internal::MaybeBool<true> v1;
 
   ctr.resize(2);
   bridge.println("{}, ssize: {}", ctr, std::ssize(ctr));

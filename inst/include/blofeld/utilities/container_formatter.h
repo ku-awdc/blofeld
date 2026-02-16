@@ -30,7 +30,7 @@ namespace blofeld
           out = std::format_to(out, "BF ");
         }
         if constexpr (Resizeable<C>) {
-          if constexpr (Maxsize<C>) {
+          if constexpr (Maxsized<C>) {
             out = std::format_to(out, "Semi-resizeable container: ");
           } else {
             out = std::format_to(out, "Resizeable container: ");            

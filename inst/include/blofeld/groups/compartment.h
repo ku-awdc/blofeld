@@ -13,6 +13,27 @@
 namespace blofeld
 {
 
+  namespace internal
+  {
+    // To allow conditional checking of carry-forward:
+    template<bool s_active>
+    struct MaybeBool;
+
+    template<>
+    struct MaybeBool<false>
+    {
+    };
+
+    // TODO: forward operator==, operator!=, assignment to value ??
+    template<>
+    struct MaybeBool<true>
+    {
+      bool value = false;
+    };
+    
+  } // namespace internal
+
+
   template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
   class Compartment
   {
@@ -34,7 +55,9 @@ namespace blofeld
 
     using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
-
+    
+    // Used for debug only:
+    internal::MaybeBool<s_cts.debug> m_carried;
 
     auto checkCompartments() const noexcept(!s_cts.debug)
       -> void
@@ -86,6 +109,10 @@ namespace blofeld
     {
       validate();
     }
+    
+  };
+  
+  /*
 
     Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
       : m_bridge(bridge)
@@ -185,7 +212,7 @@ namespace blofeld
       noexcept(!s_cts.debug)
       -> void
     {
-      /*
+      / *
       m_bridge.println("{}", m_ctr.get());
       
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
@@ -213,7 +240,7 @@ namespace blofeld
 
       // m_changes has an extra value:
       m_changes[m_changes.size()-1] = s_zero;
-      */
+      * /
     }
     
     [[nodiscard]] auto get_values() const
@@ -268,7 +295,7 @@ namespace blofeld
       }
     }
 
-    /*
+    / *
     auto remove_number(double const number) noexcept(!s_cts.debug)
       -> double
     {
@@ -286,16 +313,16 @@ namespace blofeld
       }
       return number;
     }
-    */
+    * /
 
     // Overload to allow a single double value for take_rate
-    /*
+    / *
     [[nodiscard]] auto process_rate(double const carry_rate, double const take_rate)
       -> auto
     {
       return process_rate<1>(carry_rate, std::array<double,1> { take_rate });
     }
-    */
+    * /
 
     template<std::size_t s_ntake>
     [[nodiscard]] auto process_rate(double carry_rate, std::array<double, s_ntake> const& take_rate)
@@ -402,7 +429,7 @@ namespace blofeld
       return rv;
     }
 
-    /*
+    / *
     [[nodiscard]] auto take_prop(double const prop) noexcept(!s_cts.debug)
       -> double
     {
@@ -434,7 +461,7 @@ namespace blofeld
       }
       return carry;
     }
-    */
+    * /
 
     auto insert_value_start(Value const value)
       noexcept(!s_cts.debug)
@@ -478,9 +505,12 @@ namespace blofeld
     }
 
   };
-
-  template <auto scts, ModelType sm, CompType sc, typename T>
-  [[nodiscard]] auto operator+(T const sum, Compartment<scts, sm, sc> const& obj)
+  
+  */
+  
+  // TODO: concept for Compartment
+  template <auto s_cts, ModelType s_m, CompartmentInfo s_c, typename T>
+  [[nodiscard]] auto operator+(T const sum, Compartment<s_cts, s_m, s_c> const& obj)
     -> T
   {
     using T2 = decltype(obj)::Value;
@@ -489,8 +519,8 @@ namespace blofeld
     return sum + obj.get_sum();
   }
 
-  template <auto scts, ModelType sm, CompType sc, typename T>
-  [[nodiscard]] auto operator+(Compartment<scts, sm, sc> const& obj, T const sum)
+  template <auto s_cts, ModelType s_m, CompartmentInfo s_c, typename T>
+  [[nodiscard]] auto operator+(Compartment<s_cts, s_m, s_c> const& obj, T const sum)
     -> T
   {
     using T2 = decltype(obj)::Value;

@@ -4,6 +4,7 @@
 #include <array>
 #include <vector>
 #include <stdexcept>
+#include <concepts>
 
 #include "./compartment_types.h"
 
@@ -13,10 +14,14 @@ namespace blofeld
   // This should not be used externally as inheriting from std::array etc invites misuse
   // NOTE: this may be evil, but we will never hold the std::array as a pointer...
   
-  // TODO: ssize is a free function not a member function - implement function specialisations
-  // TODO: empty() for InplaceVector
+  // TODO: change isActive to empty (consistency with std::vector)
+  // TODO: allow std::array<..., 0>
+  // TODO: make this more robust:
+  /*
+    template<template<typename...> class Ref, typename... Args>
+    struct is_specialization<Ref<Args...>, Ref>: std::true_type {};
+  */
   
-  // TODO: make this more robust
   template<typename T>
   concept Container = requires(T x)
   {
@@ -30,7 +35,7 @@ namespace blofeld
   };
 
   template<typename T>
-  concept Maxsize = Container<T> && (!Resizeable<T> || requires(T x)
+  concept Maxsized = Container<T> && (!Resizeable<T> || requires(T x)
   {
     { x.maxSize() } -> std::convertible_to<int>;
   });
@@ -55,6 +60,8 @@ namespace blofeld
       Container() = delete; //("Failed to match valid container type");
     };
 
+    // TODO: define array first, then Disabled is same as array - define empty() in terms of ssize() (DRY)
+    
     // Specialisation for disabled is just a std::array with size 0:
     template<typename Value>
     class Container<Value, ContainerType::Disabled, 0> : public std::array<Value, 0>
@@ -80,6 +87,10 @@ namespace blofeld
       }
       
     };
+
+    // Specialisation for array (n==0) is identical to disabled:
+    template<typename Value>
+    class Container<Value, ContainerType::Array, 0> : public Container<Value, ContainerType::Disabled, 0> {};
 
     // Specialisation for array (n>0) is just a std::array
     template<typename Value, int s_n>
@@ -162,6 +173,12 @@ namespace blofeld
         return (size() > 0U);
       }      
       
+      [[nodiscard]] auto empty() const noexcept
+        -> bool
+      {
+        return isActive();
+      }
+      
       // Temporary until we have C++26 inplace_vector:
       auto end() noexcept
       {
@@ -180,11 +197,11 @@ namespace blofeld
       template <typename T>
       void swap(T)
       {
-        throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I swap my implementation for C++26 inplace_vector)");
+        throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I change my implementation to C++26 inplace_vector)");
       }      
       void back()
       {
-        throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I swap my implementation for C++26 inplace_vector)");
+        throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I change my implementation to C++26 inplace_vector)");
       }
       
     };
@@ -243,6 +260,7 @@ namespace blofeld
 namespace std
 {
   // Function overload for free-function std::ssize:
+  // NOTE: this just avoids static casting via std::size_t - not sure if it actually makes a difference
   template <blofeld::internal::BlofeldContainer C>
   constexpr auto ssize(const C& c)
     -> std::ptrdiff_t // the common type of std::ptrdiff_t and int, which is returned by ssize()
@@ -250,6 +268,6 @@ namespace std
     // Explicit cast from int:
     return static_cast<std::ptrdiff_t>(c.ssize());
   }
-}
+} // namespace std
 
 #endif // BLOFELD_CONTAINER_H
