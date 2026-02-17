@@ -13,6 +13,9 @@ namespace blofeld
   
   // This should not be used externally as inheriting from std::array etc invites misuse
   // NOTE: this may be evil, but we will never hold the std::array as a pointer...
+
+  // TODO: change inheritence  to composition
+  // TODO: implement copy/move constructors assuming/checking lengths are equal and copying elements using std::copy
   
   // TODO: change isActive to empty (consistency with std::vector)
   // TODO: allow std::array<..., 0>
@@ -107,7 +110,7 @@ namespace blofeld
             
       void zero() noexcept
       {
-        this->fill(static_cast<Value>(0.0));
+        this->fill(static_cast<Value>(0));
       }
       
       [[nodiscard]] static constexpr auto ssize() noexcept
@@ -218,7 +221,7 @@ namespace blofeld
       
       void zero() noexcept
       {
-        for (auto& val : (*this)) val = static_cast<Value>(0.0);
+        for (auto& val : (*this)) val = static_cast<Value>(0);
       }
       
       // Overloading this ensures we can't request a size that's bigger than max int:

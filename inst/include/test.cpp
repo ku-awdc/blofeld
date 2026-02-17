@@ -61,6 +61,18 @@ int main ()
   bridge.println( "A vector: {}", std::vector{1} );
   bridge.println( "An array: {}", std::array<int,0>{} );
   
+  constexpr CompileTimeSettings cts;
+  blofeld::Compartment<cts,  blofeld::ModelType::Deterministic, ci> cmpt(bridge);
+
+  {
+    auto rvs = cmpt.takeRate(std::array {1.0, 2.0});
+    bridge.println( "Rvs: {}", rvs);    
+  }  
+
+  {
+    auto rvs = cmpt.takeRate(std::vector {1.0, 2.0});
+    bridge.println( "Rvs: {}", rvs);    
+  }  
   
   return 0;
 }

@@ -59,8 +59,7 @@ namespace blofeld
     // Used for debug only:
     internal::MaybeBool<s_cts.debug> m_carried;
 
-    auto checkCompartments() const noexcept(!s_cts.debug)
-      -> void
+    void checkCompartments() const noexcept(!s_cts.debug)
     {
       /*
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
@@ -78,6 +77,9 @@ namespace blofeld
 
     void validate()
     {
+      if constexpr (s_cts.debug) {
+        if (m_current.size() != m_working.size()) m_bridge.stop("Logic error: container sizes unequal within compartment");
+      }
       
       checkCompartments();
       
@@ -109,6 +111,61 @@ namespace blofeld
     {
       validate();
     }
+    
+    void resize(int const size)
+    {
+      if constexpr (Resizeable<decltype(m_current)>) {
+        
+        if constexpr (s_cts.debug) {
+          
+          if (size < 0) m_bridge.stop("Illegal container size < 0 (passed to resize)");
+          validate();
+          
+          // std:;zip is C++23:  for (const auto [value1, value2] : std::views::zip(vector1, vector2)) 
+          for (int i=0; i<std::ssize(m_current); ++i)
+          {
+            if (m_current[i] != m_working[i]) m_bridge.stop("It is not possible to re-size between applying rates and calling update()");
+          }
+        }
+        
+        const Value total = std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0));
+        m_current.resize(size);
+        setTotal(total);
+        
+      } else {
+        m_bridge.stop("Container is not resizeable");
+      }
+    }
+    
+    void setTotal(Value const total) noexcept(!s_cts.debug)
+    {
+      validate();
+      
+      // TODO
+      m_working = m_current;      
+    }
+    
+    // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
+    template <Container C>
+    [[nodiscard]] auto takeRate(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
+      -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
+    {
+      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
+      // Get return type:
+      using Return = decltype(this->takeRate(rates));
+            
+      Return rv {};
+      if constexpr (Resizeable<Return>) {
+        rv.resize(rates.size());
+      }
+      for (auto& v : rv) {
+        v = 1.1;
+      }
+      
+      return rv;
+    }
+    
+    
     
   };
   
