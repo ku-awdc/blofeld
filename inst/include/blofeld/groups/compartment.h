@@ -137,35 +137,254 @@ namespace blofeld
       }
     }
     
-    void setTotal(Value const total) noexcept(!s_cts.debug)
+    
+    /* Methods to change contents */
+    
+    // Reset to 0:
+    void zero() noexcept(!s_cts.debug)
     {
       validate();
+      m_current.zero();
+      m_working = m_current;
+    }
+    
+    // Add a total to the first subcompartment:
+    void insert(Value const total) noexcept(!s_cts.debug)
+    {
+      // total must be >= 0
+      validate();
+      
+      static_assert(false, "TODO");
       
       // TODO
       m_working = m_current;      
     }
+
+    // Add or remove a fixed number evenly/randomly throughout:
+    void distribute(Value const total) noexcept(!s_cts.debug)
+    {
+      // total must be >= -current_value
+      validate();
+      
+      static_assert(false, "TODO");
+      
+      // TODO
+      m_working = m_current;      
+    }
+    
+    
+    /* Methods to convert rates to probabilities */
+    
+    // Template for any container type:
+    template <Container C>
+    [[nodiscard]] auto makeProp(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
+      -> C
+    {
+      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
+      
+      // Adjust competing rates:
+      double const sumrates = std::accumulate(rates.begin(), rates.end(), 0.0);
+      double const leave = sumrates==0.0 ? 0.0 : (makeProp(sumrates) / sumrates);
+      
+      /*
+      // Note: using ranges would be nice, but doesn't work with std::array:
+      auto props = rates | std::ranges::views::transform([=](double const vv){ return vv * leave; });
+      C rv(props.begin(), props.end());
+      */
+      
+      // And actually this might be clearer code anyway:
+      C prop = rates;
+      for (auto& val : prop)
+      {
+        val = makeProp(val * leave);
+      }      
+      return prop;
+    }
+    
+    // Forwarding overload for size-1 array (passes by value not const ref):
+    [[nodiscard]] auto makeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
+      -> std::array<double, 1>
+    {      
+      return std::array<double, 1> { makeProp(rate[0]) };
+    }
+    
+    // Overload for simple case of a single rate:
+    [[nodiscard]] auto makeProp(double const rate) noexcept(!s_cts.debug)
+      -> double
+    {
+      double const prop = 1.0 - std::exp(-rate);
+      return prop;
+    }
+    
+    // Convert an (always single) carry rate to a probability:
+    [[nodiscard]] auto makeCarryProp(double const rate) noexcept(!s_cts.debug)
+      -> double
+    {
+      double const adj_rate = adjustCarryRate(rate);
+      return makeProp(adj_rate);
+    }
+    
+    // Take account of the number of sub-compartments and the carry type:
+    [[nodiscard]] auto adjustCarryRate(double const rate) noexcept(!s_cts.debug)
+      -> double
+    {
+      static_assert(false, "TODO");
+      
+      return 0.0;
+    }
+    
+        
+    /* takeRate functions: pass through to takeProp functions */
     
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
     template <Container C>
     [[nodiscard]] auto takeRate(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
     {
-      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
-      // Get return type:
-      using Return = decltype(this->takeRate(rates));
+      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
             
-      Return rv {};
-      if constexpr (Resizeable<Return>) {
-        rv.resize(rates.size());
-      }
-      for (auto& v : rv) {
-        v = 1.1;
-      }
-      
-      return rv;
+      auto props = makeProp(rates);      
+      return takeProp(props);      
+    }
+  
+    // Forwarding overload for size-1 array (passes by value not const ref):
+    [[nodiscard]] auto takeRate(std::array<double, 1> const rate) noexcept(!s_cts.debug)
+      -> std::array<double, 1>
+    {      
+      return std::array<double, 1> { takeRate(rate[0]) };
+    }
+    
+    // Overload for simple case of a single rate:
+    [[nodiscard]] auto takeRate(double const rate) noexcept(!s_cts.debug)
+      -> Value
+    {      
+      double const prop = makeProp(rate);
+      return takeProp(prop);
     }
     
     
+    /* takeCarryRate function: convinience wrapper for use from R (so we don't care about efficiency) */
+    
+    template <Container C>
+    struct TakeCarryValues
+    {
+      C take = {};
+      double carry = 0.0;
+    };
+    
+    // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
+    template <Container C>
+    [[nodiscard]] auto takeCarryRate(C const& take_rates, double const carry_rate) noexcept(!s_cts.debug && !Resizeable<C>)
+      -> std::conditional_t<Resizeable<C>, TakeCarryValues<std::vector<Value>>, TakeCarryValues<std::array<Value, C{}.size()>>>
+    {
+      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
+      
+      // Add the adjusted carry rate to the end of the take rates:
+      auto const rates = [&](){
+        if constexpr (Resizeable<C>) {
+          std::vector<double>(take_rates.size()+1);
+        } else {
+          std::array<double, take_rates.size()+1>();
+        }        
+      }();
+      for (index i=0; i<ssize(take_rates); ++i)
+      {
+        rates[i] = take_rates[i];
+      }
+      rates.back() = adjustCarryRate(carry_rate);
+      
+      // Convert to proportions:
+      auto props = makeProp(rates);
+      
+      // Pass down:
+      auto all = takeProp(props);
+        
+      // Separate for return:
+      TakeCarryValues rv {};
+      for (index i=0; i<ssize(rv.take); ++i)
+      {
+        rv[i] = all[i];
+      }
+      rv.carry = all.back();
+      
+      return rv;
+    }
+  
+    // Forwarding overload for simple case of a single rate:
+    [[nodiscard]] auto takeCarryRate(double const take_rate, double const carry_rate) noexcept(!s_cts.debug)
+      -> Value
+    {      
+      return takeCarryRate(std::array<double, 1> { take_rate }, carry_rate);
+    }
+  
+    
+    /* takeProp functions: pass through to double overload of takeProp function */
+    
+    // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
+    template <Container C>
+    [[nodiscard]] auto takeProp(C const& props) noexcept(!s_cts.debug && !Resizeable<C>)
+      -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
+    {    
+      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
+      // Get return type, which will be C<Value>:
+      using R = decltype(this->takeProp(props));
+      
+      /* // Alternative that zero-initialises:
+      R rv = [&](){
+        if constexpr (Resizeable<R>) {
+          return R(rates.size(), static_cast<Value>(0.0));
+        } else {
+          return R {};
+        }
+      }(); */
+      
+      // No need to zero-initialise:
+      R rv;
+      if constexpr (Resizeable<R>) rv.resize(props.size());
+      
+      // Sanity check (clang complains if we use rv and props directly):
+      if constexpr (!Resizeable<R>) static_assert(R{}.size() == C{}.size());
+      validate();
+      
+      // Pass the work down:
+      for (index i=0; i<ssize(rv); ++i)
+      {
+        rv[i] = takeProp(props[i]);
+      }
+    
+      return rv;
+    }
+    
+    // Forwarding overload for size-1 array (passes by value not const ref):
+    [[nodiscard]] auto takeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
+      -> std::array<double, 1>
+    {      
+      return std::array<double, 1> { takeProp(rate[0]) };
+    }
+  
+    // Function that actually does the work
+    [[nodiscard]] auto takeProp(double const prop) noexcept(!s_cts.debug)
+      -> Value
+    {
+      Value total = static_cast<Value>(0);
+        
+      for (index c=0; c<ssize(m_current); ++c)
+      {
+        Value const change = [&](){
+          if constexpr (s_mtype==ModelType::Deterministic) {
+            return m_current[c] * prop;
+          } else if constexpr (s_mtype==ModelType::Stochastic) {
+            return m_bridge.rbinom(prop, m_current[c]);
+          } else {
+            static_assert(false, "Unrecognised ModelType in takeRate");
+          }              
+        }();
+        m_working[c] -= change;
+        total += change;
+      }
+        
+      return total;
+    }
     
   };
   

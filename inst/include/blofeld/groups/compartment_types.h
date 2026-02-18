@@ -5,7 +5,20 @@
 
 namespace blofeld
 {
+  // Convenience for making for loops:
+  using index = std::ptrdiff_t;
+  using std::ssize;
 
+  // Similar to the GSL but simplified:
+  template <class T, class U>
+  constexpr auto symmetric_cast(U u)
+    -> T
+  {
+      const T t = static_cast<T>(u);
+      if (static_cast<U>(t) != u) throw std::invalid_argument("Failure of symmetry in symmetric_cast");
+      return t;
+  }  
+  
   enum class ModelType
   {
     Deterministic,  // Uses double and simple maths
