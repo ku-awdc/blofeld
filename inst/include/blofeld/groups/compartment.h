@@ -58,6 +58,20 @@ namespace blofeld
     
     // Used for debug only:
     internal::MaybeBool<s_cts.debug> m_carried;
+    
+    auto isDormant() const noexcept
+      -> bool
+    {
+      bool dormant = true;
+      
+      // std::zip is C++23:  for (const auto [value1, value2] : std::views::zip(vector1, vector2)) 
+      for (int i=0; i<std::ssize(m_current); ++i)
+      {
+        if (m_current[i] != m_working[i]) dormant = false;
+      }
+      
+      return dormant;
+    }
 
     void checkCompartments() const noexcept(!s_cts.debug)
     {
@@ -106,70 +120,104 @@ namespace blofeld
     Compartment() = delete;
 
   public:
+    
+    /* Constructors */
+    
     explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
       validate();
     }
     
-    void resize(int const size)
+    explicit Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
+      : m_bridge(bridge)
     {
-      if constexpr (Resizeable<decltype(m_current)>) {
-        
-        if constexpr (s_cts.debug) {
-          
-          if (size < 0) m_bridge.stop("Illegal container size < 0 (passed to resize)");
-          validate();
-          
-          // std:;zip is C++23:  for (const auto [value1, value2] : std::views::zip(vector1, vector2)) 
-          for (int i=0; i<std::ssize(m_current); ++i)
-          {
-            if (m_current[i] != m_working[i]) m_bridge.stop("It is not possible to re-size between applying rates and calling update()");
-          }
-        }
-        
-        const Value total = std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0));
-        m_current.resize(size);
-        setTotal(total);
-        
-      } else {
-        m_bridge.stop("Container is not resizeable");
-      }
+      distribute(total);
+      validate();
     }
     
     
     /* Methods to change contents */
     
+    // Resize:
+    void resize(int const size)
+    {
+      if constexpr (Resizeable<decltype(m_current)>) {
+        
+        if constexpr (s_cts.debug) {          
+          if (size < 0) m_bridge.stop("Illegal container size < 0 (passed to resize)");
+          validate();
+          if (!isDormant()) m_bridge.stop("It is not possible to re-size between applying rates and calling update()");
+        }
+        
+        const Value total = std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0));
+        m_current.resize(size);
+        distribute(total);
+        m_working = m_current;
+        
+      } else {
+        m_bridge.stop("Container is not resizeable");
+      }
+    }
+        
     // Reset to 0:
     void zero() noexcept(!s_cts.debug)
     {
       validate();
-      m_current.zero();
-      m_working = m_current;
+      m_working.zero();
+      validate();
     }
     
     // Add a total to the first subcompartment:
-    void insert(Value const total) noexcept(!s_cts.debug)
+    void insert(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
     {
       // total must be >= 0
       validate();
-      
-      static_assert(false, "TODO");
-      
-      // TODO
-      m_working = m_current;      
+      m_working[0] += total;
+      validate();
     }
 
     // Add or remove a fixed number evenly/randomly throughout:
-    void distribute(Value const total) noexcept(!s_cts.debug)
+    void distribute(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
     {
       // total must be >= -current_value
       validate();
       
-      static_assert(false, "TODO");
-      
-      // TODO
-      m_working = m_current;      
+      if constexpr (s_mtype==ModelType::Deterministic) {
+        for(auto& val : m_working){
+          val += total / ssize(m_working);
+        }
+      } else if constexpr (s_mtype==ModelType::Stochastic) {
+        
+        auto probs = [&](){
+          if constexpr (Resizeable<decltype(m_working)>) {
+            return std::vector<double>(m_working.size());
+          } else {
+            return std::array<double, m_working.size()>();
+          }
+        }();
+        for (auto& pp : probs)
+        {
+          pp = 1.0 / ssize(m_working);
+        }
+        
+        auto const inits = m_bridge.rmultinom(total, probs);
+        for (index i=0; i<ssize(inits); ++i)
+        {
+          m_working[i] += inits[i];
+        }
+      } else {
+        static_assert(false, "Unrecognised ModelType in distribute");
+      }
+          
+      validate();
+    }
+    
+    // Apply changes from taking rates and inserting/distruting etc:
+    void applyChanges() noexcept(!s_cts.debug)
+    {
+      // TODO: reset in progress variable
+      m_current = m_working;
     }
     
     
@@ -242,7 +290,7 @@ namespace blofeld
       -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
     {
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
-            
+      
       auto props = makeProp(rates);      
       return takeProp(props);      
     }
@@ -370,11 +418,12 @@ namespace blofeld
         
       for (index c=0; c<ssize(m_current); ++c)
       {
+        // TODO: needs to be multinomial not binomial
         Value const change = [&](){
           if constexpr (s_mtype==ModelType::Deterministic) {
             return m_current[c] * prop;
           } else if constexpr (s_mtype==ModelType::Stochastic) {
-            return m_bridge.rbinom(prop, m_current[c]);
+            return m_bridge.rbinom(m_current[c], prop);
           } else {
             static_assert(false, "Unrecognised ModelType in takeRate");
           }              
@@ -386,28 +435,53 @@ namespace blofeld
       return total;
     }
     
+    
+    /* Forwarding methods */
+    
+    auto begin() noexcept
+    {
+      return m_current.begin();
+    }
+    auto end() noexcept
+    {
+      return m_current.end();
+    }
+
+    auto begin() const noexcept
+    {
+      return m_current.begin();
+    }
+    auto end() const noexcept
+    {
+      return m_current.end();
+    }
+
+    auto cbegin() const noexcept
+    {
+      return m_current.cbegin();
+    }
+    auto cend() const noexcept
+    {
+      return m_current.end();
+    }
+
+    [[nodiscard]] auto size() const noexcept
+      -> std::size_t
+    {
+      return static_cast<std::size_t>(m_current.size());
+    }
+    
+    // Note: is constexpr for Array etc but not Vector/InplaceVector
+    [[nodiscard]] auto isActive() const noexcept
+      -> bool
+    {
+      return m_current.isActive();
+    }    
+    
   };
   
   /*
 
-    Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
-      : m_bridge(bridge)
-    {
-      setSum(total);
-      validate();
-    }
-
-    [[nodiscard]] constexpr auto isActive() const noexcept
-      -> bool
-    {
-      return m_current.isActive();
-    }
-
-    [[nodiscard]] constexpr auto size() const noexcept
-      -> std::size_t
-    {
-      return m_current.size();
-    }
     
     [[nodiscard]] auto validate() const noexcept
       -> bool
@@ -438,34 +512,6 @@ namespace blofeld
     void setTotal(Value const total)
     {
       // TODO
-    }
-
-    // Required for this to work as a container for printing as well as getting/setting sub-compartments:
-    auto begin() noexcept
-    {
-      return m_current.begin();
-    }
-    auto end() noexcept
-    {
-      return m_current.end();
-    }
-
-    auto begin() const noexcept
-    {
-      return m_current.begin();
-    }
-    auto end() const noexcept
-    {
-      return m_current.end();
-    }
-
-    auto cbegin() const noexcept
-    {
-      return m_current.cbegin();
-    }
-    auto cend() const noexcept
-    {
-      return m_current.end();
     }
 
 

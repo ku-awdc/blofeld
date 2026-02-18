@@ -16,7 +16,7 @@
 int main ()
 {
   
-  constexpr auto ci = blofeld::compartment_info(50, blofeld::ContainerType::InplaceVector);
+  constexpr auto ci = blofeld::compartment_info(10, blofeld::ContainerType::Vector);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
 
   struct CompileTimeSettings
@@ -33,14 +33,17 @@ int main ()
   // Note: needed for clang, but not gcc:
   [[maybe_unused]] blofeld::internal::MaybeBool<true> v1;
 
-  ctr.resize(2);
-  bridge.println("{}, ssize: {}", ctr, std::ssize(ctr));
+  if constexpr (blofeld::Resizeable<decltype(ctr)>) {
+    
+    ctr.resize(2);
+    bridge.println("{}, ssize: {}", ctr, std::ssize(ctr));
   
-  ctr.resize(20);
-  bridge.println("{}", ctr);
+    ctr.resize(20);
+    bridge.println("{}", ctr);
 
-  ctr.resize(0);
-  bridge.println("{}", ctr);
+    ctr.resize(0);
+    bridge.println("{}", ctr);
+  }
 
   std::array arr {1, 2, 3};
   std::vector vec {4, 5, 6};
@@ -63,16 +66,26 @@ int main ()
   
   constexpr CompileTimeSettings cts;
   blofeld::Compartment<cts,  blofeld::ModelType::Deterministic, ci> cmpt(bridge);
+  
+  cmpt.distribute(100.0); cmpt.applyChanges();
+  bridge.println("Cmpt: {}", cmpt);
+
+  cmpt.insert(10); cmpt.applyChanges();
+  bridge.println("Cmpt: {}", cmpt);
 
   {
-    auto rvs = cmpt.takeRate(std::array {1.0, 2.0});
+    auto rvs = cmpt.takeRate(std::array {1.0, 2.0}); cmpt.applyChanges();
     bridge.println( "Rvs: {}", rvs);    
   }  
 
   {
-    auto rvs = cmpt.takeRate(std::vector {1.0, 2.0});
+    auto rvs = cmpt.takeRate(std::vector {1.0, 2.0}); cmpt.applyChanges();
     bridge.println( "Rvs: {}", rvs);    
   }  
+  bridge.println("Cmpt: {}", cmpt);
+
+  cmpt.zero(); cmpt.applyChanges();
+  bridge.println("Cmpt: {}", cmpt);
   
   return 0;
 }

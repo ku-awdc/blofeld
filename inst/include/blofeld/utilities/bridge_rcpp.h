@@ -60,32 +60,69 @@ namespace blofeld
       return rv;
     }
 
-    template<size_t s_size>
-    auto rmultinom(int n, std::array<double, s_size> const& prob)
-      -> std::array<int, s_size+1>
+    // Note: identical to bridge_cpp definition - TODO: DRY
+    template <Container C>
+    [[nodiscard]] auto rmultinom(int const n, C const& prob) noexcept(!Resizeable<C>)
+      -> std::conditional_t<Resizeable<C>, std::vector<int>, std::array<int, C{}.size()>>
     {
-      if constexpr (s_size == 0U)
-      {
-        std::array<int, 1> rv{ n };
+      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
+      // Get return type, which will be C<int>:
+      using R = decltype(this->rmultinom(n, prob));
+      
+      // TODO: check sum(prob)==1 and/or re-weight for consistency with R?
+
+      // TODO: avoid code re-use - can constexpr be conditional?
+      
+      if constexpr (Fixedsize<C>) {
+        constexpr std::size_t s_size = prob.size();
+        if constexpr (s_size == 0U) {
+          R rv {};
+          return rv;
+        } else if constexpr (s_size == 1U) {
+          R rv { n };
+          return rv;
+        }
+
+        R rv{};
+        int sum = 0;
+        double pp = 1.0;
+        for (index i = 0; i < (ssize(prob)-1); ++i)
+        {
+          int const tt = rbinom(n-sum, prob[i] / pp);
+          rv[i+1] = tt;
+          pp -= prob[i];
+          sum += tt;
+        }
+        rv.back() = n-sum;
+        return rv;
+        
+      } else {
+        
+        std::size_t const s_size = prob.size();
+        if (s_size == 0U) {
+          R rv { };
+          return rv;
+        } else if (s_size == 1U) {
+          R rv { n };
+          return rv;
+        }
+
+        R rv;
+        rv.resize(s_size);
+        int sum = 0;
+        double pp = 1.0;
+        for (index i = 0; i < (ssize(prob)-1); ++i)
+        {
+          int const tt = rbinom(n-sum, prob[i] / pp);
+          rv[i+1] = tt;
+          pp -= prob[i];
+          sum += tt;
+        }
+        rv.back() = n-sum;
         return rv;
       }
-      
-      // TODO: check sum(prob)<=1
-
-      std::array<int, s_size+1> rv{};
-      int sum = 0;
-      double pp = 1.0;
-      for (auto i = 0; i < s_size; ++i)
-      {
-        int const tt = rbinom(n-sum, prob[i] / pp);
-        rv[i+1] = tt;
-        pp -= prob[i];
-        sum += tt;
-      }
-      rv[0] = n-sum;
-      return rv;
     }
-
+ 
   };
 
 } //blofeld

@@ -5,7 +5,7 @@
 #include <array>
 
 #include "../groups/container.h"
-// #include "../groups/compartment.h"
+#include "../groups/compartment.h"
 
 namespace blofeld
 {
@@ -66,10 +66,8 @@ class std::formatter<std::array<T,S>> : public blofeld::internal::ContainerForma
 template<typename Value, blofeld::ContainerType s_cont_type, int s_n>
 class std::formatter<blofeld::internal::Container<Value, s_cont_type, s_n>> : public blofeld::internal::ContainerFormatter<blofeld::internal::Container<Value, s_cont_type, s_n>> {};
 
-/*
 // Formatter for blofeld::Compartment:
-template<auto s_cts, blofeld::ModelType s_mtype, blofeld::CompType s_ctype>
-class std::formatter<blofeld::Compartment<s_cts, s_mtype, s_ctype>> : public blofeld::ContainerFormatter<blofeld::Compartment<s_cts, s_mtype, s_ctype>> {};
-*/
+template<auto s_cts, blofeld::ModelType s_mtype, blofeld::CompartmentInfo s_cinfo>
+class std::formatter<blofeld::Compartment<s_cts, s_mtype, s_cinfo>> : public blofeld::internal::ContainerFormatter<blofeld::Compartment<s_cts, s_mtype, s_cinfo>> {};
 
 #endif // BLOFELD_CONTAINER_FORMATTER_H
