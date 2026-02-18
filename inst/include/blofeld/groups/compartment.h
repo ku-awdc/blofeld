@@ -394,11 +394,18 @@ namespace blofeld
       if constexpr (!Resizeable<R>) static_assert(R{}.size() == C{}.size());
       validate();
       
-      // Pass the work down:
-      for (index i=0; i<ssize(rv); ++i)
-      {
-        rv[i] = takeProp(props[i]);
-      }
+      // For deterministic we can just pass the work down:
+      if constexpr (s_mtype==ModelType::Deterministic) {
+        for (index i=0; i<ssize(rv); ++i)
+        {
+          rv[i] = takeProp(props[i]);
+        }
+      // For stochastic we need multinomial:
+      } else if constexpr (s_mtype==ModelType::Stochastic) {
+        static_assert(false, "Not implemented");
+      } else {
+        static_assert(false, "Unrecognised ModelType in takeProp");
+      } 
     
       return rv;
     }
@@ -418,14 +425,13 @@ namespace blofeld
         
       for (index c=0; c<ssize(m_current); ++c)
       {
-        // TODO: needs to be multinomial not binomial
         Value const change = [&](){
           if constexpr (s_mtype==ModelType::Deterministic) {
             return m_current[c] * prop;
           } else if constexpr (s_mtype==ModelType::Stochastic) {
             return m_bridge.rbinom(m_current[c], prop);
           } else {
-            static_assert(false, "Unrecognised ModelType in takeRate");
+            static_assert(false, "Unrecognised ModelType in takeProp");
           }              
         }();
         m_working[c] -= change;
