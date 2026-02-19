@@ -402,7 +402,9 @@ namespace blofeld
         }
       // For stochastic we need multinomial:
       } else if constexpr (s_mtype==ModelType::Stochastic) {
-        static_assert(false, "Not implemented");
+        
+        m_bridge.stop("Not implemented");
+        
       } else {
         static_assert(false, "Unrecognised ModelType in takeProp");
       } 

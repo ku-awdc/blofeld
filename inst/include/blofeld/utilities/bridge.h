@@ -29,13 +29,14 @@ namespace blofeld
     
     
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
-    template <Container C>
-    [[nodiscard]] auto rmultinom(std::function<int(int const, double const)> const rbinom, int const n, C const& prob) noexcept(!Resizeable<C>)
+    template <Container C, typename F>
+//    [[nodiscard]] auto rmultinom(std::function<int(int const, double const)> rbinom, int const n, C const& prob) noexcept(!Resizeable<C>)
+    [[nodiscard]] auto rmultinom(F rbinom, int const n, C const& prob) noexcept(!Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<int>, std::array<int, C{}.size()>>
     {
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
       // Get return type, which will be C<int>:
-      using R = decltype(this->rmultinom(n, prob));
+      using R = decltype(this->rmultinom(rbinom, n, prob));
       
       // TODO: check sum(prob)==1 and/or re-weight for consistency with R?
 

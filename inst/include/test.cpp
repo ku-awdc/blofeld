@@ -65,7 +65,7 @@ int main ()
   bridge.println( "An array: {}", std::array<int,0>{} );
   
   constexpr CompileTimeSettings cts;
-  blofeld::Compartment<cts,  blofeld::ModelType::Deterministic, ci> cmpt(bridge);
+  blofeld::Compartment<cts,  blofeld::ModelType::Stochastic, ci> cmpt(bridge);
   
   cmpt.distribute(100.0); cmpt.applyChanges();
   bridge.println("Cmpt: {}", cmpt);

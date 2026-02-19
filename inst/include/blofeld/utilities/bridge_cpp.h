@@ -82,10 +82,13 @@ namespace blofeld
     
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
     template <Container C>
-    [[nodiscard]] auto rmultinom(std::function<int(int const, double const)> const rbinom, int const n, C const& prob) noexcept(!Resizeable<C>)
+    [[nodiscard]] auto rmultinom(int const total, C const& prob) noexcept(!Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<int>, std::array<int, C{}.size()>>
     {
-      return Bridge::rmultinom(&rbinom, n, prob);
+      auto fun = [this](int n, double p) -> int { return rbinom(n,p); };
+      // auto fun = std::bind(&BridgeCpp<T_rng>::rbinom, this, std::placeholders::_1, std::placeholders::_2);
+      
+      return Bridge::rmultinom(fun, total, prob);
     }
 
 
