@@ -213,6 +213,14 @@ namespace blofeld
       validate();
     }
     
+    // Set the compartments directly:
+    template <Container C>
+    void setValues(C const& values)
+    {
+      // values.size() must be right, all values must be >=0, Value type must be right, we can't be mid-update
+      // TODO
+    }    
+    
     // Apply changes from taking rates and inserting/distruting etc:
     void applyChanges() noexcept(!s_cts.debug)
     {
@@ -377,18 +385,14 @@ namespace blofeld
       // Get return type, which will be C<Value>:
       using R = decltype(this->takeProp(props));
       
-      /* // Alternative that zero-initialises:
+      // Need to zero-initialise for std::array:
       R rv = [&](){
         if constexpr (Resizeable<R>) {
-          return R(rates.size(), static_cast<Value>(0.0));
+          return R(props.size(), static_cast<Value>(0.0));
         } else {
           return R {};
         }
-      }(); */
-      
-      // No need to zero-initialise:
-      R rv;
-      if constexpr (Resizeable<R>) rv.resize(props.size());
+      }();
       
       // Sanity check (clang complains if we use rv and props directly):
       if constexpr (!Resizeable<R>) static_assert(R{}.size() == C{}.size());
@@ -403,7 +407,31 @@ namespace blofeld
       // For stochastic we need multinomial:
       } else if constexpr (s_mtype==ModelType::Stochastic) {
         
-        m_bridge.stop("Not implemented");
+        auto probs = [&](){
+          if constexpr (Resizeable<C>) {
+            return std::vector<double>(props.size()+1U);
+          } else {
+            return std::array<double, C{}.size()+1U>();
+          }
+        }();
+        
+        double tp = 0.0;
+        for (index i=0; i<ssize(props); ++i)
+        {
+          tp += props[i];
+          probs[i] = props[i];
+        }
+        probs.back() = 1.0 - tp;
+        
+        for (auto& comp : m_working)
+        {
+          auto take = m_bridge.rmultinom(comp, probs);
+          for (index i=0; i<ssize(rv); ++i)
+          {
+            rv[i] += take[i];
+          }
+          comp = take.back();
+        }
         
       } else {
         static_assert(false, "Unrecognised ModelType in takeProp");

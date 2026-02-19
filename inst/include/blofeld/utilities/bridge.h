@@ -43,7 +43,7 @@ namespace blofeld
       // TODO: avoid code re-use - can constexpr be conditional?
       
       if constexpr (Fixedsize<C>) {
-        constexpr std::size_t s_size = prob.size();
+        constexpr std::size_t s_size = C{}.size();
         if constexpr (s_size == 0U) {
           R rv {};
           return rv;
@@ -58,7 +58,7 @@ namespace blofeld
         for (index i = 0; i < (ssize(prob)-1); ++i)
         {
           int const tt = rbinom(n-sum, prob[i] / pp);
-          rv[i+1] = tt;
+          rv[i] = tt;
           pp -= prob[i];
           sum += tt;
         }
@@ -83,7 +83,7 @@ namespace blofeld
         for (index i = 0; i < (ssize(prob)-1); ++i)
         {
           int const tt = rbinom(n-sum, prob[i] / pp);
-          rv[i+1] = tt;
+          rv[i] = tt;
           pp -= prob[i];
           sum += tt;
         }

@@ -77,6 +77,7 @@ int main ()
     auto rvs = cmpt.takeRate(std::array {1.0, 2.0}); cmpt.applyChanges();
     bridge.println( "Rvs: {}", rvs);    
   }  
+  bridge.println("Cmpt: {}", cmpt);
 
   {
     auto rvs = cmpt.takeRate(std::vector {1.0, 2.0}); cmpt.applyChanges();
