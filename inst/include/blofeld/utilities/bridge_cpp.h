@@ -4,6 +4,7 @@
 #include <random>
 #include <format>
 #include <iostream>
+#include <stdexcept>
 
 #include "./bridge.h"
 
@@ -11,7 +12,7 @@ namespace blofeld
 {
 
   template<typename T_rng>
-  class BridgeCpp : Bridge
+  class BridgeCpp : protected Bridge
   {
   private:
     // https://en.cppreference.com/w/cpp/numeric/random.html
@@ -37,15 +38,16 @@ namespace blofeld
     }
 
     template<typename... Args>
-    void print(std::format_string<Args...> const fmt, Args&&... args)
+    void print(std::format_string<Args...>&& fmt, Args&&... args)
     {
-      std::cout << std::vformat(fmt.get(), std::make_format_args(args...));
+      Bridge::print(std::cout, std::forward<std::format_string<Args...>>(fmt), std::forward<Args>(args)...);
     }
 
     template<typename... Args>
-    void println(std::format_string<Args...> const fmt, Args&&... args)
+    void println(std::format_string<Args...>&& fmt, Args&&... args)
     {
-      std::cout << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
+      print(std::forward<std::format_string<Args...>>(fmt), std::forward<Args>(args)...);
+      println();
     }
 
     void println()
@@ -56,39 +58,17 @@ namespace blofeld
     template<typename... Args>
     void stop(std::format_string<Args...> const fmt, Args&&... args)
     {
-      std::cout << "ERROR: " << std::vformat(fmt.get(), std::make_format_args(args...)) << std::endl;
-      throw(1);
+      std::string msg = std::vformat(fmt.get(), std::make_format_args(args...));
+      std::cerr << "ERROR: " << msg << std::endl;
+      throw std::runtime_error(msg);
     }
 
     template<typename... Args>
     void warning(std::format_string<Args...> const fmt, Args&&... args)
     {
-      std::cout << "Warning: " << std::vformat(fmt.get(), std::make_format_args(args...)) << "\n";
+      std::string msg = std::vformat(fmt.get(), std::make_format_args(args...));
+      std::cout << "WARNING: " << msg << "\n";
     }
-
-    /*
-    template<typename... Args>
-    void print(Args... args)
-    {
-      std::ostringstream ss;
-      using namespace std::literals;
-      stream(ss, " "sv, args...);
-      std::cout << ss.str();
-    };
-
-    template<typename... Args>
-    void print(std::initializer_list<std::format_string<Args...>>)
-    {
-      std::cout << "ilist";
-    };
-
-    template<typename... Args>
-    void println(Args... args)
-    {
-      print(args...);
-      std::cout << std::endl;
-    };
-    */
 
     auto rbinom(int const n, double const p)
       -> int
@@ -99,69 +79,15 @@ namespace blofeld
       std::binomial_distribution<> d(n, p);
       return d(m_rng);
     }
-
+    
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
     template <Container C>
-    [[nodiscard]] auto rmultinom(int const n, C const& prob) noexcept(!Resizeable<C>)
+    [[nodiscard]] auto rmultinom(std::function<int(int const, double const)> const rbinom, int const n, C const& prob) noexcept(!Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<int>, std::array<int, C{}.size()>>
     {
-      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
-      // Get return type, which will be C<int>:
-      using R = decltype(this->rmultinom(n, prob));
-      
-      // TODO: check sum(prob)==1 and/or re-weight for consistency with R?
-
-      // TODO: avoid code re-use - can constexpr be conditional?
-      
-      if constexpr (Fixedsize<C>) {
-        constexpr std::size_t s_size = prob.size();
-        if constexpr (s_size == 0U) {
-          R rv {};
-          return rv;
-        } else if constexpr (s_size == 1U) {
-          R rv { n };
-          return rv;
-        }
-
-        R rv{};
-        int sum = 0;
-        double pp = 1.0;
-        for (index i = 0; i < (ssize(prob)-1); ++i)
-        {
-          int const tt = rbinom(n-sum, prob[i] / pp);
-          rv[i+1] = tt;
-          pp -= prob[i];
-          sum += tt;
-        }
-        rv.back() = n-sum;
-        return rv;
-        
-      } else {
-        
-        std::size_t const s_size = prob.size();
-        if (s_size == 0U) {
-          R rv { };
-          return rv;
-        } else if (s_size == 1U) {
-          R rv { n };
-          return rv;
-        }
-
-        R rv;
-        rv.resize(s_size);
-        int sum = 0;
-        double pp = 1.0;
-        for (index i = 0; i < (ssize(prob)-1); ++i)
-        {
-          int const tt = rbinom(n-sum, prob[i] / pp);
-          rv[i+1] = tt;
-          pp -= prob[i];
-          sum += tt;
-        }
-        rv.back() = n-sum;
-        return rv;
-      }
+      return Bridge::rmultinom(&rbinom, n, prob);
     }
+
 
   };
 
