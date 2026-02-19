@@ -49,6 +49,12 @@ namespace blofeld
       >
     >;
     static_assert(!std::is_same<Value, void>::value, "Unrecognised ModelType");
+
+    using ReturnContainer = std::conditional_t<
+      Resizeable<internal::Container<Value, s_cinfo.container_type, s_cinfo.n>>,
+      std::vector<Value>,
+      std::array<Value, s_cinfo.n>
+    >;
     
     internal::Container<Value, s_cinfo.container_type, s_cinfo.n> m_working;
     internal::Container<Value, s_cinfo.container_type, s_cinfo.n> m_current;
@@ -217,15 +223,54 @@ namespace blofeld
     template <Container C>
     void setValues(C const& values)
     {
+      static_assert(std::same_as<typename C::value_type, Value>, "Type mis-match: container of Value expected for C");
+      
       // values.size() must be right, all values must be >=0, Value type must be right, we can't be mid-update
       // TODO
-    }    
+    }
     
+    /* // TODO: needs a const ref accessor in m_current
+    // Get compartment values as a const ref:
+    ReturnContainer const& getValues() const
+    {
+      return ...
+    } */
+    
+    // Get compartment values as a copy:
+    ReturnContainer getValues() const
+    {
+      
+      
+    }
+        
     // Apply changes from taking rates and inserting/distruting etc:
     void applyChanges() noexcept(!s_cts.debug)
     {
       // TODO: reset in progress variable
       m_current = m_working;
+    }
+    
+    // Required for Rcpp:
+    auto getValuesV() const
+      -> std::vector<Value>
+    {
+      if constexpr (Resizeable<ReturnContainer>) {
+        return getValues();
+      } else {
+        auto val = getValues();
+        std::vector<Value> rv;
+        rv.resize(val.size());
+        for (index i=0; i<ssize(val); ++i)
+        {
+          rv[i] = val[i];
+        }
+        return getValues();
+      }
+    }
+    auto setValuesV(std::vector<Value> const& values)
+      -> void
+    {
+      setValues(values);
     }
     
     
