@@ -239,8 +239,17 @@ namespace blofeld
     // Get compartment values as a copy:
     ReturnContainer getValues() const
     {
-      
-      
+      ReturnContainer rv;
+      if constexpr (Resizeable<ReturnContainer>) {
+        std::copy(m_current.begin(), m_current.end(), std::back_inserter(rv));
+      } else {
+        static_assert(ssize(m_current)==ssize(rv), "Logic error in getValues");
+        for (index i=0; i<ssize(m_current); ++i)
+        {
+          rv[i] = m_current[i];
+        }
+      }      
+      return rv;      
     }
         
     // Apply changes from taking rates and inserting/distruting etc:
