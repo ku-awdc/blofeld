@@ -16,7 +16,7 @@
 int main ()
 {
   
-  constexpr auto ci = blofeld::compartment_info(10, blofeld::ContainerType::Array);
+  constexpr auto ci = blofeld::compartment_info(10, blofeld::ContainerType::Vector);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
 
   struct CompileTimeSettings
@@ -70,7 +70,7 @@ int main ()
   if (cmpt.size() > 0U) {
     cmpt.distribute(100.0);
   }
-  bridge.println("Cmpt: {}", cmpt);
+  bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+0);
 
   {
     cmpt.insert(10);
@@ -92,10 +92,10 @@ int main ()
     auto rvs = cmpt.carryRate(1.0);
     bridge.println( "Carried: {}", rvs);    
   }  
-  bridge.println("Cmpt: {}", cmpt);
+  bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+0);
 
   cmpt.zero();
-  bridge.println("Cmpt: {}", cmpt);
+  bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+-0); // Note: operator- not implemented directly, as it doesn't make sense really
   
   return 0;
 }
