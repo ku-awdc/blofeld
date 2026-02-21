@@ -72,7 +72,7 @@ namespace blofeld
     public:
       using ReturnType = std::array<Value, 0>;
       
-      static constexpr auto zero() noexcept
+      static constexpr auto reset() noexcept
         -> void
       {
         // Do nothing
@@ -106,10 +106,10 @@ namespace blofeld
       constexpr Container()
       {
         static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::Array>");
-        zero();
+        reset();
       }
             
-      constexpr auto zero() noexcept
+      constexpr auto reset() noexcept
         -> void
       {
         this->fill(static_cast<Value>(0));
@@ -145,7 +145,7 @@ namespace blofeld
       {
         static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::InplaceVector>");
         
-        this->zero();
+        this->reset();
         resize(static_cast<std::size_t>(s_n)); // Unnecessary: static_cast<Value>(0.0));
       }
       
@@ -222,7 +222,7 @@ namespace blofeld
         resize(s_n);
       }
       
-      auto zero() noexcept
+      auto reset() noexcept
         -> void
       {
         for (auto& val : (*this)) val = static_cast<Value>(0);

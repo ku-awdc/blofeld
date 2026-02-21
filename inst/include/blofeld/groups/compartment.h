@@ -40,7 +40,6 @@ namespace blofeld
   class Compartment
   {
   private:
-
     using Value = std::conditional_t<
       s_mtype == ModelType::Deterministic,
       double,
@@ -98,7 +97,7 @@ namespace blofeld
       } else {
         // Fall through
       }
-      return static_cast<Value>(0);
+      return zero();
     }
     
     constexpr auto isDormant() const noexcept
@@ -178,6 +177,13 @@ namespace blofeld
     }
     
     
+    /* Utility function to get a correctly-typed zero */
+    static constexpr auto zero() noexcept
+    {
+      return static_cast<Value>(0);
+    }
+    
+    
     /* Methods to change contents */
     
     // Resize:
@@ -192,7 +198,7 @@ namespace blofeld
           if (!isDormant()) m_bridge.stop("It is not possible to re-size between applying rates and calling applyChanges()");
         }
         
-        const Value total = std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0));
+        const Value total = std::accumulate(m_current.begin(), m_current.end(), zero());
         m_current.resize(size);
         distribute(total);
         m_working = m_current;
@@ -203,11 +209,11 @@ namespace blofeld
     }
         
     // Reset to 0:
-    constexpr auto zero() noexcept(!s_cts.debug)
+    constexpr auto reset() noexcept(!s_cts.debug)
       -> void
     {
       validate();
-      m_current.zero();
+      m_current.reset();
       m_working = m_current;
       validate();
     }
@@ -217,7 +223,7 @@ namespace blofeld
       -> void
     {
       // total must be >= 0
-      if (total < static_cast<Value>(0)) {
+      if (total < zero()) {
         m_bridge.stop("Invalid total < 0");
       }
       validate();
@@ -246,7 +252,7 @@ namespace blofeld
       }
       
       // total must be >= -current_value
-      if (total < -std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0))) {
+      if (total < -std::accumulate(m_current.begin(), m_current.end(), zero())) {
         m_bridge.stop("Invalid total < -available");
       }
       
@@ -298,7 +304,7 @@ namespace blofeld
       if (s_cts.debug) {
         for (auto val : values)
         {
-          if (val < static_cast<Value>(0)) m_bridge.stop("Invalid value < 0");
+          if (val < zero()) m_bridge.stop("Invalid value < 0");
         }
       }
       
@@ -331,7 +337,7 @@ namespace blofeld
     constexpr auto getTotal() const
       -> Value
     {
-      return std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0));
+      return std::accumulate(m_current.begin(), m_current.end(), zero());
     }
         
     // Apply changes from taking rates and inserting/distruting etc:
@@ -425,6 +431,7 @@ namespace blofeld
     }
     
     // Take account of the number of sub-compartments and the carry type:
+    // TODO: private?
     [[nodiscard]] constexpr auto adjustCarryRate(double const rate) noexcept(!s_cts.debug)
       -> double
     {
@@ -609,7 +616,7 @@ namespace blofeld
     [[nodiscard]] constexpr auto takeProp(double const prop) noexcept(!s_cts.debug)
       -> Value
     {
-      Value total = static_cast<Value>(0);
+      Value total = zero();
         
       // Flag that an update is in progress:
       if constexpr (s_cts.debug) m_take_applied.value = false;
@@ -618,9 +625,9 @@ namespace blofeld
       {
         Value const change = [&](){
           if constexpr (s_mtype==ModelType::Deterministic) {
-            return m_current[c] * prop;
+            return m_working[c] * prop;
           } else if constexpr (s_mtype==ModelType::Stochastic) {
-            return m_bridge.rbinom(m_current[c], prop);
+            return m_bridge.rbinom(m_working[c], prop);
           } else {
             static_assert(false, "Unrecognised ModelType in takeProp");
           }              
@@ -639,7 +646,7 @@ namespace blofeld
     [[nodiscard]] constexpr auto carryRate(double const rate) noexcept(!s_cts.debug)
       -> Value
     {
-      return carryProp(adjustCarryRate(rate));
+      return carryProp(makeCarryProp(rate));
     }
     
     // Do the work
@@ -653,27 +660,43 @@ namespace blofeld
         m_carry_applied.value = false;
       }
       
-      /*
       // TODO: implement isActive method that can be used in all applyRates etc functions
-      if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
-        
-        return rate * ssize(m_current);
-        
-      } else if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
+      const Value carried = [&](){
 
-        static_assert(false, "CarryType::Immediate is not yet implemented");
+        if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
         
-      } else if constexpr (s_cinfo.carry_type == CarryType::None) {
-        static_assert(false, "Invalid path to call adjustCarryRate with disabled compartment");
+          Value carry = zero();
+          for (int i=0; i<ssize(m_working); ++i)
+          {
+            const Value n = m_working[i];
+            m_working[i] += carry;
+            
+            if constexpr (s_mtype==ModelType::Deterministic) {
+              carry = n*prop;
+            } else if constexpr (s_mtype==ModelType::Stochastic) {
+              carry = m_bridge.rbinom(n, prop);
+            } else {
+              static_assert(false, "Unrecognised ModelType in carryProp");
+            }
+            
+            m_working[i] -= carry;
+          }
+          return carry;
         
-      } else {
-        static_assert(false, "Unhandled CarryType in adjustCarryRate");
-      } */
+        } else if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
+
+          static_assert(false, "CarryType::Immediate is not yet implemented");
+        
+        } else if constexpr (s_cinfo.carry_type == CarryType::None) {
+          static_assert(false, "Invalid path to call carryProp with disabled compartment");
+        
+        } else {
+          static_assert(false, "Unhandled CarryType in carryProp");
+        }
+        
+      }();
       
-      // TODO
-      double const carried = 0.0 + getCarryThrough();
-//      static_assert(false, "TODO: carryProp - depend on number of sub-comp and carrytype");
-      return carried;
+      return carried + getCarryThrough();
     }
     
     
@@ -866,16 +889,14 @@ namespace blofeld
     */
 
     // Note: unusual + overloads return Value
-    [[nodiscard]] auto operator+(Value const sum)
-      const noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto operator+(Value const sum) const noexcept(!s_cts.debug)
         -> Value
     {
       return sum + getTotal();
     }
 
     template <auto s_s, ModelType s_m, CompartmentInfo s_c, typename T>
-    [[nodiscard]] auto operator+(Compartment<s_s, s_m, s_c> const& obj)
-      const noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto operator+(Compartment<s_s, s_m, s_c> const& obj) const noexcept(!s_cts.debug)
         -> Value
     {
       return obj.getTotal() + getTotal();
@@ -883,26 +904,26 @@ namespace blofeld
 
   };
   
+  template<typename T>
+  concept ArithmeticType = std::is_arithmetic_v<T>;
   
   // TODO: concept for Compartment
-  template <auto s_cts, ModelType s_m, CompartmentInfo s_c, typename T>
-  [[nodiscard]] auto operator+(T const sum, Compartment<s_cts, s_m, s_c> const& obj)
-    -> T
+  template <auto s_cts, ModelType s_m, CompartmentInfo s_c, ArithmeticType T>
+  [[nodiscard]] constexpr auto operator+(T const sum, Compartment<s_cts, s_m, s_c> const& obj)
+    -> decltype(Compartment<s_cts, s_m, s_c>::zero())
   {
-    using T2 = decltype(obj)::Value;
-    static_assert(std::is_same<T, T2>::value, "Inconsistent Value when summing compartments");
-
-    return sum + obj.getTotal();
+    auto tobj = obj.getTotal();
+    auto tin = symmetric_cast<decltype(tobj)>(sum);
+    return tobj + tin;
   }
 
-  template <auto s_cts, ModelType s_m, CompartmentInfo s_c, typename T>
-  [[nodiscard]] auto operator+(Compartment<s_cts, s_m, s_c> const& obj, T const sum)
-    -> T
+  template <auto s_cts, ModelType s_m, CompartmentInfo s_c, ArithmeticType T>
+  [[nodiscard]] constexpr auto operator+(Compartment<s_cts, s_m, s_c> const& obj, T const sum)
+    -> decltype(Compartment<s_cts, s_m, s_c>::zero())
   {
-    using T2 = decltype(obj)::Value;
-    static_assert(std::is_same<T, T2>::value, "Inconsistent Value when summing compartments");
-
-    return sum + obj.getTotal();
+    auto tobj = obj.getTotal();
+    auto tin = symmetric_cast<decltype(tobj)>(sum);
+    return tobj + tin;
   }
 
 } //blofeld
