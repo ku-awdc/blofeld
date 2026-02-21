@@ -92,7 +92,7 @@ int main ()
     auto rvs = cmpt.carryRate(1.0);
     bridge.println( "Carried: {}", rvs);    
   }  
-  bridge.println("Cmpt: {}; sum = {}", cmpt, 0.5+cmpt);
+  bridge.println("Cmpt: {}; sum = {}", cmpt, 0+cmpt);
 
   cmpt.reset();
   bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+-0); // Note: operator- not implemented directly, as it doesn't make sense really

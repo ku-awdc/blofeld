@@ -70,7 +70,7 @@ namespace blofeld
     // Used when size == 0:
     internal::MaybeEmpty<Value, Resizeable<decltype(m_current)> || decltype(m_working){}.size()==0U> m_carry_through { };
     
-    constexpr auto setCarryThrough([[maybe_unused]] Value const value) noexcept
+    [[nodiscard]] constexpr auto setCarryThrough([[maybe_unused]] Value const value) noexcept
       -> bool
     {
       if constexpr (Resizeable<decltype(m_current)>) {
@@ -87,7 +87,7 @@ namespace blofeld
       return false;
     }
     
-    constexpr auto getCarryThrough() noexcept
+    [[nodiscard]] constexpr auto getCarryThrough() noexcept
       -> Value
     {
       if constexpr (Resizeable<decltype(m_current)>) {
@@ -100,7 +100,7 @@ namespace blofeld
       return zero();
     }
     
-    constexpr auto isDormant() const noexcept
+    [[nodiscard]] constexpr auto isDormant() const noexcept
       -> bool
     {
       bool dormant = true;
@@ -115,7 +115,8 @@ namespace blofeld
       return dormant;
     }
 
-    constexpr void checkCompartments() const noexcept(!s_cts.debug)
+    constexpr auto checkCompartments() const noexcept(!s_cts.debug)
+      -> void
     {
       /*
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
@@ -129,15 +130,6 @@ namespace blofeld
         m_bridge.stop("Negative s_ctype.n are not allowed, and values of 0 are not yet supported");
       }
       */
-    }
-
-    constexpr void validate()
-    {
-      if constexpr (s_cts.debug) {
-        if (m_current.size() != m_working.size()) m_bridge.stop("Logic error: container sizes unequal within compartment");
-      }
-      
-      checkCompartments();
       
       // Fine even if m_current is size-0 vector or array
       for (auto const& val : m_current)
@@ -146,7 +138,18 @@ namespace blofeld
           m_bridge.stop("Logic error: negative compartment value");
         }
       }
+      
+    }
 
+    constexpr auto validate()
+      -> void
+    {
+      if constexpr (s_cts.debug) {
+        if (m_current.size() != m_working.size()) m_bridge.stop("Logic error: container sizes unequal within compartment");
+      }
+      
+      checkCompartments();
+      
     }
 
     Compartment() = delete;
@@ -178,7 +181,7 @@ namespace blofeld
     
     
     /* Utility function to get a correctly-typed zero */
-    static constexpr auto zero() noexcept
+    [[nodiscard]] static constexpr auto zero() noexcept
     {
       return static_cast<Value>(0);
     }
@@ -320,7 +323,7 @@ namespace blofeld
     } */
     
     // Get compartment values as a copy:
-    constexpr auto getValues() const
+    [[nodiscard]] constexpr auto getValues() const
       -> ReturnContainer
     {
       ReturnContainer rv;
@@ -334,7 +337,7 @@ namespace blofeld
     }
     
     // Get total by value:
-    constexpr auto getTotal() const
+    [[nodiscard]] constexpr auto getTotal() const
       -> Value
     {
       return std::accumulate(m_current.begin(), m_current.end(), zero());
@@ -356,7 +359,7 @@ namespace blofeld
     }
     
     // Required for Rcpp:
-    constexpr auto getValuesV() const
+    [[nodiscard]] constexpr auto getValuesV() const
       -> std::vector<Value>
     {
       if constexpr (Resizeable<ReturnContainer>) {
