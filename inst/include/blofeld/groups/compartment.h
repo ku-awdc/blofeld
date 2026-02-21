@@ -6,6 +6,7 @@
 #include <iostream>
 #include <typeinfo>
 #include <type_traits>
+#include <ranges>
 
 #include "./compartment_types.h"
 #include "./container.h"
@@ -16,19 +17,19 @@ namespace blofeld
   namespace internal
   {
     // To allow conditional checking of carry-forward:
-    template<bool s_active>
-    struct MaybeBool;
+    template<typename T, bool s_active>
+    struct MaybeEmpty;
 
-    template<>
-    struct MaybeBool<false>
+    template<typename T>
+    struct MaybeEmpty<T, false>
     {
+      
     };
 
-    // TODO: forward operator==, operator!=, assignment to value ??
-    template<>
-    struct MaybeBool<true>
+    template<typename T>
+    struct MaybeEmpty<T, true>
     {
-      bool value = false;
+      T value {};
     };
     
   } // namespace internal
@@ -64,7 +65,41 @@ namespace blofeld
     Bridge& m_bridge;
     
     // Used for debug only:
-    internal::MaybeBool<s_cts.debug> m_carried;
+    internal::MaybeEmpty<bool, s_cts.debug> m_take_applied { };
+    internal::MaybeEmpty<bool, s_cts.debug> m_carry_applied { };
+
+    // Used when size == 0:
+    internal::MaybeEmpty<Value, Resizeable<decltype(m_current)> || decltype(m_working){}.size()==0U> m_carry_through { };
+    
+    constexpr auto setCarryThrough([[maybe_unused]] Value const value) noexcept
+      -> bool
+    {
+      if constexpr (Resizeable<decltype(m_current)>) {
+        if (m_current.size() == 0U) {
+          m_carry_through.value = value;
+          return true;
+        }
+      } else if constexpr (decltype(m_working){}.size()==0U) {
+         m_carry_through.value = value;
+         return true;
+      } else {
+        // Do nothing
+      }
+      return false;
+    }
+    
+    constexpr auto getCarryThrough() noexcept
+      -> Value
+    {
+      if constexpr (Resizeable<decltype(m_current)>) {
+        if (m_current.size() == 0U) return m_carry_through.value;
+      } else if constexpr (decltype(m_working){}.size()==0U) {
+        return m_carry_through.value;
+      } else {
+        // Fall through
+      }
+      return static_cast<Value>(0);
+    }
     
     constexpr auto isDormant() const noexcept
       -> bool
@@ -77,6 +112,7 @@ namespace blofeld
         if (m_current[i] != m_working[i]) dormant = false;
       }
       
+      // return m_take_applied.value && m_carry_applied.value && dormant;
       return dormant;
     }
 
@@ -133,12 +169,20 @@ namespace blofeld
     constexpr explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
+      if constexpr (s_cts.debug) {
+        m_take_applied.value = true;
+        m_carry_applied.value = true;
+      }
       validate();
     }
     
     constexpr explicit Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
+      if constexpr (s_cts.debug) {
+        m_take_applied.value = true;
+        m_carry_applied.value = true;
+      }
       distribute(total);
       validate();
     }
@@ -155,7 +199,7 @@ namespace blofeld
         if constexpr (s_cts.debug) {          
           if (size < 0) m_bridge.stop("Illegal container size < 0 (passed to resize)");
           validate();
-          if (!isDormant()) m_bridge.stop("It is not possible to re-size between applying rates and calling update()");
+          if (!isDormant()) m_bridge.stop("It is not possible to re-size between applying rates and calling applyChanges()");
         }
         
         const Value total = std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0));
@@ -173,7 +217,8 @@ namespace blofeld
       -> void
     {
       validate();
-      m_working.zero();
+      m_current.zero();
+      m_working = m_current;
       validate();
     }
     
@@ -182,7 +227,14 @@ namespace blofeld
       -> void
     {
       // total must be >= 0
+      if (total < static_cast<Value>(0)) {
+        m_bridge.stop("Invalid total < 0");
+      }
       validate();
+
+      // Shortcut if size==0:
+      if(setCarryThrough(total)) return;
+
       m_working[0] += total;
       validate();
     }
@@ -191,7 +243,23 @@ namespace blofeld
     constexpr auto distribute(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
       -> void
     {
+      if constexpr (Resizeable<decltype(m_current)>) {
+        if (ssize(m_current) == 0) {
+          m_bridge.stop("Unable to distribute values within an inactive compartment");
+        }
+      } else {
+        // To restrictive as this may be within an un-followed runtime path:      
+        // static_assert(decltype(m_current){}.size() > 0U, "Unable to distribute values within a disabled compartment");
+        if (ssize(m_current) == 0) {
+          m_bridge.stop("Unable to distribute values within a disabled compartment");
+        }
+      }
+      
       // total must be >= -current_value
+      if (total < -std::accumulate(m_current.begin(), m_current.end(), static_cast<Value>(0))) {
+        m_bridge.stop("Invalid total < -available");
+      }
+      
       validate();
       
       if constexpr (s_mtype==ModelType::Deterministic) {
@@ -205,7 +273,9 @@ namespace blofeld
             return std::vector<double>(m_working.size());
           } else {
             // Note: clang complains that m_working.size() is not constexpr
-            return std::array<double, decltype(m_working){}.size()>();
+            // std::tuple_size_v<decltype(m_working)> works for Array but not BirthDeath
+            // Fortunately I have defined ssize as static
+            return std::array<double, decltype(m_working)::ssize()>();
           }
         }();
         for (auto& pp : probs)
@@ -233,7 +303,17 @@ namespace blofeld
       static_assert(std::same_as<typename C::value_type, Value>, "Type mis-match: container of Value expected for C");
       
       // values.size() must be right, all values must be >=0, Value type must be right, we can't be mid-update
-      // TODO
+      if (!isDormant()) m_bridge.stop("It is not possible to set values between applying rates and calling applyChanges()");
+      if (values.size() != m_current.size()) m_bridge.stop("Size mis-match in provided values");
+      if (s_cts.debug) {
+        for (auto val : values)
+        {
+          if (val < static_cast<Value>(0)) m_bridge.stop("Invalid value < 0");
+        }
+      }
+      
+      std::copy(values.begin(), values.end(), m_current.begin());
+      m_working = m_current;
     }
     
     /* // TODO: needs a const ref accessor in m_current
@@ -249,14 +329,11 @@ namespace blofeld
     {
       ReturnContainer rv;
       if constexpr (Resizeable<ReturnContainer>) {
-        std::copy(m_current.begin(), m_current.end(), std::back_inserter(rv));
+        rv.resize(m_current.size());
       } else {
-        static_assert(ssize(m_current)==ssize(rv), "Logic error in getValues");
-        for (index i=0; i<ssize(m_current); ++i)
-        {
-          rv[i] = m_current[i];
-        }
-      }      
+        static_assert(ssize(m_current)==ssize(rv), "Logic error in getValues");        
+      }
+      std::copy(m_current.begin(), m_current.end(), rv.begin());
       return rv;      
     }
         
@@ -264,8 +341,15 @@ namespace blofeld
     constexpr auto applyChanges() noexcept(!s_cts.debug)
       -> void
     {
-      // TODO: reset in progress variable
+      if constexpr (s_cts.debug) {
+        if (m_carry_applied.value) m_bridge.stop("applyChanges called consecutively without carryProp");
+      }
+      
       m_current = m_working;
+      if constexpr (s_cts.debug) {
+        m_take_applied.value = true;
+        m_carry_applied.value = true;
+      }
     }
     
     // Required for Rcpp:
@@ -347,9 +431,9 @@ namespace blofeld
     [[nodiscard]] constexpr auto adjustCarryRate(double const rate) noexcept(!s_cts.debug)
       -> double
     {
-      static_assert(false, "TODO");
+      // static_assert(false, "TODO");
       
-      return 0.0;
+      return rate;
     }
     
         
@@ -403,30 +487,28 @@ namespace blofeld
       // Add the adjusted carry rate to the end of the take rates:
       auto const rates = [&](){
         if constexpr (Resizeable<C>) {
-          std::vector<double>(take_rates.size()+1);
+          std::vector<double>(take_rates.size()+1U);
         } else {
-          std::array<double, take_rates.size()+1>();
+          std::array<double, decltype(take_rates){}.size()+1U>();
         }        
       }();
-      for (index i=0; i<ssize(take_rates); ++i)
-      {
-        rates[i] = take_rates[i];
-      }
+      std::copy(take_rates.begin(), take_rates.end(), rates.begin());
       rates.back() = adjustCarryRate(carry_rate);
       
       // Convert to proportions:
       auto props = makeProp(rates);
       
-      // Pass down:
-      auto all = takeProp(props);
+      // Pass down all but the carry prop:
+      auto takes = takeProp(std::views::take(props, take_rates.size()));
         
+      // Then do the carry:
+      Value carry = carryProp(props.back());
+      
       // Separate for return:
-      TakeCarryValues rv {};
-      for (index i=0; i<ssize(rv.take); ++i)
-      {
-        rv[i] = all[i];
-      }
-      rv.carry = all.back();
+      TakeCarryValues rv;
+      if constexpr (Resizeable<C>) rv.take.resize(take_rates.size());
+      std::copy(takes.begin(), takes.end(), rv.take.begin());
+      rv.carry = carry;
       
       return rv;
     }
@@ -450,6 +532,9 @@ namespace blofeld
       // Get return type, which will be C<Value>:
       using R = decltype(this->takeProp(props));
       
+      // Flag that an update is in progress:
+      if constexpr (s_cts.debug) m_take_applied.value = false;
+            
       // Need to zero-initialise for std::array:
       R rv = [&](){
         if constexpr (Resizeable<R>) {
@@ -518,6 +603,9 @@ namespace blofeld
     {
       Value total = static_cast<Value>(0);
         
+      // Flag that an update is in progress:
+      if constexpr (s_cts.debug) m_take_applied.value = false;
+      
       for (index c=0; c<ssize(m_current); ++c)
       {
         Value const change = [&](){
@@ -534,6 +622,34 @@ namespace blofeld
       }
         
       return total;
+    }
+    
+    
+    /* carryRate and carryProp methods */
+    
+    // Pass down to carryProp:
+    [[nodiscard]] constexpr auto carryRate(double const rate) noexcept(!s_cts.debug)
+      -> Value
+    {
+      return carryProp(adjustCarryRate(rate));
+    }
+    
+    // Do the work
+    [[nodiscard]] constexpr auto carryProp(double const prop) noexcept(!s_cts.debug)
+      -> Value
+    {
+      if constexpr (s_cts.debug) {
+        // Check updates have been done since last time:
+        if (!m_carry_applied.value) m_bridge.stop("Attempt to call carryProp more than once without applyChanges");
+        // Flag that an update is in progress:
+        m_carry_applied.value = false;
+      }
+      
+      
+      // TODO
+      double const carried = 0.0 + getCarryThrough();
+      static_assert(false, "TODO: carryProp - depend on number of sub-comp and carrytype");
+      return carried;
     }
     
     

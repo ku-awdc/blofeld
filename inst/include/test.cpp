@@ -16,7 +16,7 @@
 int main ()
 {
   
-  constexpr auto ci = blofeld::compartment_info(10, blofeld::ContainerType::Vector);
+  constexpr auto ci = blofeld::compartment_info(10, blofeld::ContainerType::Array);
   auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
 
   struct CompileTimeSettings
@@ -29,10 +29,6 @@ int main ()
   using Bridge = CompileTimeSettings::Bridge;
   Bridge bridge;
   
-  [[maybe_unused]] blofeld::internal::MaybeBool<false> v2;
-  // Note: needed for clang, but not gcc:
-  [[maybe_unused]] blofeld::internal::MaybeBool<true> v1;
-
   if constexpr (blofeld::Resizeable<decltype(ctr)>) {
     bridge.println("RESIZEABLE");
     
@@ -71,25 +67,34 @@ int main ()
   constexpr CompileTimeSettings cts;
   blofeld::Compartment<cts,  blofeld::ModelType::Stochastic, ci> cmpt(bridge);
   
-  cmpt.distribute(100.0); cmpt.applyChanges();
-  bridge.println("Cmpt: {}", cmpt);
-
-  cmpt.insert(10); cmpt.applyChanges();
+  if (cmpt.size() > 0U) {
+    cmpt.distribute(100.0);
+  }
   bridge.println("Cmpt: {}", cmpt);
 
   {
-    auto rvs = cmpt.takeRate(std::array {1.0, 2.0}); cmpt.applyChanges();
+    cmpt.insert(10);
+    auto rvs = cmpt.takeRate(std::array {1.0, 2.0});
+    auto crd = cmpt.carryRate(0.0);
+    cmpt.applyChanges();
+    bridge.println( "Rvs: {};  Carried: {}", rvs, crd);    
+  }
+  bridge.println("Cmpt: {}", cmpt);
+
+  {
+    auto rvs = cmpt.takeRate(std::vector {1.0, 2.0});
     bridge.println( "Rvs: {}", rvs);    
   }  
   bridge.println("Cmpt: {}", cmpt);
 
   {
-    auto rvs = cmpt.takeRate(std::vector {1.0, 2.0}); cmpt.applyChanges();
-    bridge.println( "Rvs: {}", rvs);    
+    cmpt.insert(10);
+    auto rvs = cmpt.carryRate(1.0);
+    bridge.println( "Carried: {}", rvs);    
   }  
   bridge.println("Cmpt: {}", cmpt);
 
-  cmpt.zero(); cmpt.applyChanges();
+  cmpt.zero();
   bridge.println("Cmpt: {}", cmpt);
   
   return 0;

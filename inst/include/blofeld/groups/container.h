@@ -279,6 +279,8 @@ namespace std
     // Explicit cast from int:
     return static_cast<std::ptrdiff_t>(c.ssize());
   }
+  
+  
 } // namespace std
 
 #endif // BLOFELD_CONTAINER_H
