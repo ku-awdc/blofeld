@@ -12,6 +12,9 @@
 
 #include "blofeld/groups/compartment.h"
 
+// Legacy for supporting Sandra:
+#include "blofeld/groups/SEIDRVMZgroup.h"
+
 
 int main ()
 {

@@ -6,7 +6,7 @@
 
 namespace blofeld
 {
-  // Convenience for making for loops:
+  // Convenience for making for loops, inspired by GSL:
   using index = std::ptrdiff_t;
   using std::ssize;
 
