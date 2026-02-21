@@ -260,7 +260,7 @@ namespace blofeld
       }
       
       validate();
-      
+
       if constexpr (s_mtype==ModelType::Deterministic) {
         for(auto& val : m_working){
           val += total / ssize(m_working);
@@ -567,6 +567,7 @@ namespace blofeld
       validate();
       
       // For deterministic we can just pass the work down:
+      static_assert(false, "This is wrong:  need to follow rmultinom code process for adding up consecutive probs");
       if constexpr (s_mtype==ModelType::Deterministic) {
         for (index i=0; i<ssize(rv); ++i)
         {
