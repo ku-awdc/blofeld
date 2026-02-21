@@ -60,7 +60,7 @@ namespace blofeld
     template<typename Value, ContainerType s_cont_type, int s_n>
     class Container
     {
-      Container() = delete; //("Failed to match valid container type");
+      constexpr Container() = delete; //("Failed to match valid container type");
     };
 
     // TODO: define array first, then Disabled is same as array - define empty() in terms of ssize() (DRY)
@@ -72,7 +72,8 @@ namespace blofeld
     public:
       using ReturnType = std::array<Value, 0>;
       
-      static constexpr void zero() noexcept
+      static constexpr auto zero() noexcept
+        -> void
       {
         // Do nothing
       }
@@ -102,13 +103,14 @@ namespace blofeld
     public:
       using ReturnType = std::array<Value, s_n>;
       
-      Container()
+      constexpr Container()
       {
         static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::Array>");
         zero();
       }
             
-      void zero() noexcept
+      constexpr auto zero() noexcept
+        -> void
       {
         this->fill(static_cast<Value>(0));
       }
@@ -139,7 +141,7 @@ namespace blofeld
     public:
       using ReturnType = std::vector<Value>;
       
-      Container()
+      constexpr Container()
       {
         static_assert(s_n > 0, "Invalid s_n <= 0 for Container<ContainerType::InplaceVector>");
         
@@ -147,19 +149,20 @@ namespace blofeld
         resize(static_cast<std::size_t>(s_n)); // Unnecessary: static_cast<Value>(0.0));
       }
       
-      void resize(int const n)
+      constexpr auto resize(int const n)
+        -> void
       {
         if (n > s_max) throw std::invalid_argument("Attempt to set n > maxSize() in Container<ContainerType::InplaceVector>.resize()");
         m_n = n;
       }
       
-      [[nodiscard]] auto size() const noexcept
+      [[nodiscard]] constexpr auto size() const noexcept
         -> std::size_t
       {
         return static_cast<std::size_t>(m_n);
       }
 
-      [[nodiscard]] auto ssize() const noexcept
+      [[nodiscard]] constexpr auto ssize() const noexcept
         -> int
       {
         return m_n;
@@ -170,46 +173,46 @@ namespace blofeld
         return s_max;
       }
 
-      [[nodiscard]] auto isActive() const noexcept
+      [[nodiscard]] constexpr auto isActive() const noexcept
         -> bool
       {
         return (size() > 0U);
       }      
       
-      [[nodiscard]] auto empty() const noexcept
+      [[nodiscard]] constexpr auto empty() const noexcept
         -> bool
       {
         return isActive();
       }
       
       // Temporary until we have C++26 inplace_vector:
-      auto end() noexcept
+      constexpr auto end() noexcept
       {
         auto ptr = this->begin();
         return ptr+m_n;
       }
-      auto end() const noexcept
+      constexpr auto end() const noexcept
       {
         auto ptr = this->cbegin();
         return ptr+m_n;
       }      
-      auto cend() const noexcept
+      constexpr auto cend() const noexcept
       {
         return end();
       }      
       template <typename T>
-      void swap(T)
+      constexpr void swap(T)
       {
         throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I change my implementation to C++26 inplace_vector)");
       }      
-      void back()
+      constexpr void back()
       {
         throw std::logic_error("Unable to call swap on a Container<ContainerType::InplaceVector> (until I change my implementation to C++26 inplace_vector)");
       }
       
     };
 
-    // Specialisation for vector:
+    // Specialisation for vector (cannot be constexpr):
     template<typename Value, int s_n>
     class Container<Value, ContainerType::Vector, s_n> : public std::vector<Value>
     {
@@ -219,13 +222,15 @@ namespace blofeld
         resize(s_n);
       }
       
-      void zero() noexcept
+      auto zero() noexcept
+        -> void
       {
         for (auto& val : (*this)) val = static_cast<Value>(0);
       }
       
       // Overloading this ensures we can't request a size that's bigger than max int:
-      void resize(int const n)
+      auto resize(int const n)
+        -> void
       {
         if (n < 0) throw std::invalid_argument("Attempt to set n < 0 in Container<ContainerType::Vector>.resize()");
         std::vector<Value>::resize(static_cast<std::size_t>(n));  // Default second argument: static_cast<Value>(0.0));        

@@ -2,6 +2,7 @@
 #define BLOFELD_COMPARTMENT_TYPES_H
 
 #include <stdexcept>
+#include <iostream>
 
 namespace blofeld
 {
@@ -55,7 +56,7 @@ namespace blofeld
     // NOTE: throwing in consteval is not allowed until C++26, but it will generate an error in C++20, which is what we wanted anyway
     
     // Check n is valid (specified as int to avoid using unsigned types):
-    if (n < 0) throw std::invalid_argument("Invalid n < 0");
+    if(n < 0) throw std::invalid_argument("Invalid n < 0");
     
     // Allow shortcut of specifying n==0 with default cont_type==array to mean disable:
     if (n == 0 && (cont_type == ContainerType::Array || cont_type == ContainerType::Disabled)) {

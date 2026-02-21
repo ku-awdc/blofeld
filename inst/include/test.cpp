@@ -34,7 +34,10 @@ int main ()
   [[maybe_unused]] blofeld::internal::MaybeBool<true> v1;
 
   if constexpr (blofeld::Resizeable<decltype(ctr)>) {
+    bridge.println("RESIZEABLE");
     
+    /*
+    // Compiler error if Array even though this branch isn't used:
     ctr.resize(2);
     bridge.println("{}, ssize: {}", ctr, std::ssize(ctr));
   
@@ -43,6 +46,7 @@ int main ()
 
     ctr.resize(0);
     bridge.println("{}", ctr);
+    */
   }
 
   std::array arr {1, 2, 3};

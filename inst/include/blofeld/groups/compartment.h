@@ -34,6 +34,7 @@ namespace blofeld
   } // namespace internal
 
 
+  // Note: methods are marked constexpr but using that requires a constexpr bridge!
   template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
   class Compartment
   {
@@ -65,7 +66,7 @@ namespace blofeld
     // Used for debug only:
     internal::MaybeBool<s_cts.debug> m_carried;
     
-    auto isDormant() const noexcept
+    constexpr auto isDormant() const noexcept
       -> bool
     {
       bool dormant = true;
@@ -79,7 +80,7 @@ namespace blofeld
       return dormant;
     }
 
-    void checkCompartments() const noexcept(!s_cts.debug)
+    constexpr void checkCompartments() const noexcept(!s_cts.debug)
     {
       /*
       if constexpr (s_ctype.compcont == CompCont::disabled) return;
@@ -95,7 +96,7 @@ namespace blofeld
       */
     }
 
-    void validate()
+    constexpr void validate()
     {
       if constexpr (s_cts.debug) {
         if (m_current.size() != m_working.size()) m_bridge.stop("Logic error: container sizes unequal within compartment");
@@ -129,13 +130,13 @@ namespace blofeld
     
     /* Constructors */
     
-    explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
+    constexpr explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
       validate();
     }
     
-    explicit Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
+    constexpr explicit Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
       distribute(total);
@@ -146,7 +147,8 @@ namespace blofeld
     /* Methods to change contents */
     
     // Resize:
-    void resize(int const size)
+    constexpr auto resize(int const size)
+      -> void
     {
       if constexpr (Resizeable<decltype(m_current)>) {
         
@@ -167,7 +169,8 @@ namespace blofeld
     }
         
     // Reset to 0:
-    void zero() noexcept(!s_cts.debug)
+    constexpr auto zero() noexcept(!s_cts.debug)
+      -> void
     {
       validate();
       m_working.zero();
@@ -175,7 +178,8 @@ namespace blofeld
     }
     
     // Add a total to the first subcompartment:
-    void insert(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
+    constexpr auto insert(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
+      -> void
     {
       // total must be >= 0
       validate();
@@ -184,7 +188,8 @@ namespace blofeld
     }
 
     // Add or remove a fixed number evenly/randomly throughout:
-    void distribute(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
+    constexpr auto distribute(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
+      -> void
     {
       // total must be >= -current_value
       validate();
@@ -199,7 +204,8 @@ namespace blofeld
           if constexpr (Resizeable<decltype(m_working)>) {
             return std::vector<double>(m_working.size());
           } else {
-            return std::array<double, m_working.size()>();
+            // Note: clang complains that m_working.size() is not constexpr
+            return std::array<double, decltype(m_working){}.size()>();
           }
         }();
         for (auto& pp : probs)
@@ -221,7 +227,8 @@ namespace blofeld
     
     // Set the compartments directly:
     template <Container C>
-    void setValues(C const& values)
+    constexpr auto setValues(C const& values)
+      -> void
     {
       static_assert(std::same_as<typename C::value_type, Value>, "Type mis-match: container of Value expected for C");
       
@@ -237,7 +244,8 @@ namespace blofeld
     } */
     
     // Get compartment values as a copy:
-    ReturnContainer getValues() const
+    constexpr auto getValues() const
+      -> ReturnContainer
     {
       ReturnContainer rv;
       if constexpr (Resizeable<ReturnContainer>) {
@@ -253,14 +261,15 @@ namespace blofeld
     }
         
     // Apply changes from taking rates and inserting/distruting etc:
-    void applyChanges() noexcept(!s_cts.debug)
+    constexpr auto applyChanges() noexcept(!s_cts.debug)
+      -> void
     {
       // TODO: reset in progress variable
       m_current = m_working;
     }
     
     // Required for Rcpp:
-    auto getValuesV() const
+    constexpr auto getValuesV() const
       -> std::vector<Value>
     {
       if constexpr (Resizeable<ReturnContainer>) {
@@ -276,7 +285,7 @@ namespace blofeld
         return getValues();
       }
     }
-    auto setValuesV(std::vector<Value> const& values)
+    constexpr auto setValuesV(std::vector<Value> const& values)
       -> void
     {
       setValues(values);
@@ -287,7 +296,7 @@ namespace blofeld
     
     // Template for any container type:
     template <Container C>
-    [[nodiscard]] auto makeProp(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
+    [[nodiscard]] constexpr auto makeProp(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
       -> C
     {
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
@@ -312,14 +321,14 @@ namespace blofeld
     }
     
     // Forwarding overload for size-1 array (passes by value not const ref):
-    [[nodiscard]] auto makeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto makeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
       -> std::array<double, 1>
     {      
       return std::array<double, 1> { makeProp(rate[0]) };
     }
     
     // Overload for simple case of a single rate:
-    [[nodiscard]] auto makeProp(double const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto makeProp(double const rate) noexcept(!s_cts.debug)
       -> double
     {
       double const prop = 1.0 - std::exp(-rate);
@@ -327,7 +336,7 @@ namespace blofeld
     }
     
     // Convert an (always single) carry rate to a probability:
-    [[nodiscard]] auto makeCarryProp(double const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto makeCarryProp(double const rate) noexcept(!s_cts.debug)
       -> double
     {
       double const adj_rate = adjustCarryRate(rate);
@@ -335,7 +344,7 @@ namespace blofeld
     }
     
     // Take account of the number of sub-compartments and the carry type:
-    [[nodiscard]] auto adjustCarryRate(double const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto adjustCarryRate(double const rate) noexcept(!s_cts.debug)
       -> double
     {
       static_assert(false, "TODO");
@@ -348,7 +357,7 @@ namespace blofeld
     
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
     template <Container C>
-    [[nodiscard]] auto takeRate(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
+    [[nodiscard]] constexpr auto takeRate(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
     {
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
@@ -358,14 +367,14 @@ namespace blofeld
     }
   
     // Forwarding overload for size-1 array (passes by value not const ref):
-    [[nodiscard]] auto takeRate(std::array<double, 1> const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto takeRate(std::array<double, 1> const rate) noexcept(!s_cts.debug)
       -> std::array<double, 1>
     {      
       return std::array<double, 1> { takeRate(rate[0]) };
     }
     
     // Overload for simple case of a single rate:
-    [[nodiscard]] auto takeRate(double const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto takeRate(double const rate) noexcept(!s_cts.debug)
       -> Value
     {      
       double const prop = makeProp(rate);
@@ -375,6 +384,8 @@ namespace blofeld
     
     /* takeCarryRate function: convinience wrapper for use from R (so we don't care about efficiency) */
     
+    // Struct for return type of takeCarryRate:
+    // TODO: make private?
     template <Container C>
     struct TakeCarryValues
     {
@@ -384,7 +395,7 @@ namespace blofeld
     
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
     template <Container C>
-    [[nodiscard]] auto takeCarryRate(C const& take_rates, double const carry_rate) noexcept(!s_cts.debug && !Resizeable<C>)
+    [[nodiscard]] constexpr auto takeCarryRate(C const& take_rates, double const carry_rate) noexcept(!s_cts.debug && !Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, TakeCarryValues<std::vector<Value>>, TakeCarryValues<std::array<Value, C{}.size()>>>
     {
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
@@ -421,7 +432,7 @@ namespace blofeld
     }
   
     // Forwarding overload for simple case of a single rate:
-    [[nodiscard]] auto takeCarryRate(double const take_rate, double const carry_rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto takeCarryRate(double const take_rate, double const carry_rate) noexcept(!s_cts.debug)
       -> Value
     {      
       return takeCarryRate(std::array<double, 1> { take_rate }, carry_rate);
@@ -432,7 +443,7 @@ namespace blofeld
     
     // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
     template <Container C>
-    [[nodiscard]] auto takeProp(C const& props) noexcept(!s_cts.debug && !Resizeable<C>)
+    [[nodiscard]] constexpr auto takeProp(C const& props) noexcept(!s_cts.debug && !Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
     {    
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
@@ -495,14 +506,14 @@ namespace blofeld
     }
     
     // Forwarding overload for size-1 array (passes by value not const ref):
-    [[nodiscard]] auto takeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto takeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
       -> std::array<double, 1>
     {      
       return std::array<double, 1> { takeProp(rate[0]) };
     }
   
     // Function that actually does the work
-    [[nodiscard]] auto takeProp(double const prop) noexcept(!s_cts.debug)
+    [[nodiscard]] constexpr auto takeProp(double const prop) noexcept(!s_cts.debug)
       -> Value
     {
       Value total = static_cast<Value>(0);
@@ -528,41 +539,41 @@ namespace blofeld
     
     /* Forwarding methods */
     
-    auto begin() noexcept
+    constexpr auto begin() noexcept
     {
       return m_current.begin();
     }
-    auto end() noexcept
+    constexpr auto end() noexcept
     {
       return m_current.end();
     }
 
-    auto begin() const noexcept
+    constexpr auto begin() const noexcept
     {
       return m_current.begin();
     }
-    auto end() const noexcept
+    constexpr auto end() const noexcept
     {
       return m_current.end();
     }
 
-    auto cbegin() const noexcept
+    constexpr auto cbegin() const noexcept
     {
       return m_current.cbegin();
     }
-    auto cend() const noexcept
+    constexpr auto cend() const noexcept
     {
       return m_current.end();
     }
 
-    [[nodiscard]] auto size() const noexcept
+    [[nodiscard]] constexpr auto size() const noexcept
       -> std::size_t
     {
       return static_cast<std::size_t>(m_current.size());
     }
     
     // Note: is constexpr for Array etc but not Vector/InplaceVector
-    [[nodiscard]] auto isActive() const noexcept
+    [[nodiscard]] constexpr auto isActive() const noexcept
       -> bool
     {
       return m_current.isActive();
