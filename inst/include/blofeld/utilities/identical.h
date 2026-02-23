@@ -16,7 +16,7 @@ namespace blofeld
     if constexpr (std::is_integral<T>() || std::is_enum<T>()) {
       return a == b;
     } else if constexpr (std::is_floating_point<T>()) {
-      return std::abs((a-b)/a) < tol; 
+      return a == 0.0 ? std::abs(b) < tol : std::abs((a-b)/a) < tol; 
     } else {
       static_assert(false, "Unhandled type in identical()");
     }    

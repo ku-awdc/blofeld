@@ -68,7 +68,7 @@ int main ()
   bridge.println( "An array: {}", std::array<int,0>{} );
   
   constexpr CompileTimeSettings cts;
-  blofeld::Compartment<cts,  blofeld::ModelType::Stochastic, ci> cmpt(bridge);
+  blofeld::Compartment<cts,  blofeld::ModelType::Deterministic, ci> cmpt(bridge);
   
   if (cmpt.size() > 0U) {
     cmpt.distribute(100.0);
@@ -85,8 +85,8 @@ int main ()
   bridge.println("Cmpt: {}", cmpt);
 
   {
-    auto rvs = cmpt.takeRate(std::vector {1.0, 2.0});
-    bridge.println( "Rvs: {}", rvs);    
+    auto [take, carry] = cmpt.makeProps(std::vector {1.0, 2.0}, std::array {0.5});
+    bridge.println( "Take props: {};  Carry props: {}", take, carry);
   }  
   bridge.println("Cmpt: {}", cmpt);
 
@@ -94,6 +94,7 @@ int main ()
     cmpt.insert(10);
     auto rvs = cmpt.carryRate(1.0);
     bridge.println( "Carried: {}", rvs);    
+    cmpt.applyChanges();
   }  
   bridge.println("Cmpt: {}; sum = {}", cmpt, 0+cmpt);
 

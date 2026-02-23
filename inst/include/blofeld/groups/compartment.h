@@ -382,379 +382,55 @@ namespace blofeld
     }
     
     
-    /* Methods to convert rates to probabilities */
+    /* Convinience forwarding methods */
+    /* EFFICIENCY CONCERNS
+    // godbolt.org strongly suggests that passing a size-0 array by (const) ref is the same as by value i.e. no instructions omitted
+    // Also it looks like passing a size-1 array by (const) ref is the same as by value is the same as the value of arr.front()
+    // Passing a size-2+ array by const ref is cheaper than by value, as expected
+    // Conclusion: passing through to takeCarryProps using std::array of size 0 or 1 should be efficient for specialist calls
+    */    
     
-    // Template for any container type:
-    template <Container C>
-    [[nodiscard]] constexpr auto makeProp(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
-      -> C
-    {
-      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
-      
-      // Adjust competing rates:
-      double const sumrates = std::accumulate(rates.begin(), rates.end(), 0.0);
-      double const leave = sumrates==0.0 ? 0.0 : (makeProp(sumrates) / sumrates);
-      
-      /*
-      // Note: using ranges would be nice, but doesn't work with std::array:
-      auto props = rates | std::ranges::views::transform([=](double const vv){ return vv * leave; });
-      C rv(props.begin(), props.end());
-      */
-      
-      // And actually this might be clearer code anyway:
-      C prop = rates;
-      for (auto& val : prop)
-      {
-        val = makeProp(val * leave);
-      }      
-      return prop;
-    }
-    
-    // Forwarding overload for size-1 array (passes by value not const ref):
-    [[nodiscard]] constexpr auto makeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
-      -> std::array<double, 1>
-    {      
-      return std::array<double, 1> { makeProp(rate[0]) };
-    }
-    
-    // Overload for simple case of a single rate:
-    [[nodiscard]] constexpr auto makeProp(double const rate) noexcept(!s_cts.debug)
+    // Make a single take proportion from rate:
+    [[nodiscard]] constexpr auto makeTakeProp(double const take_rate) noexcept(!s_cts.debug)
       -> double
     {
-      double const prop = 1.0 - std::exp(-rate);
-      return prop;
+      auto [take, _] = makeProps(std::array<double, 1> { take_rate }, std::array<double, 0> {});
+      return take;
     }
-    
-    // Convert an (always single) carry rate to a probability:
-    [[nodiscard]] constexpr auto makeCarryProp(double const rate) noexcept(!s_cts.debug)
-      -> double
-    {
-      double const adj_rate = adjustCarryRate(rate);
-      return makeProp(adj_rate);
-    }
-    
-    // Take account of the number of sub-compartments and the carry type:
-    // TODO: private?
-    [[nodiscard]] constexpr auto adjustCarryRate(double const rate) noexcept(!s_cts.debug)
-      -> double
-    {
-      if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
-        
-        return rate * ssize(m_current);
-        
-      } else if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
 
-        static_assert(false, "CarryType::Immediate is not yet implemented");
-        
-      } else if constexpr (s_cinfo.carry_type == CarryType::None) {
-        static_assert(false, "Invalid path to call adjustCarryRate with disabled compartment");
-        
-      } else {
-        static_assert(false, "Unhandled CarryType in adjustCarryRate");
-      }
+    // Make a single carry proportion from rate:
+    [[nodiscard]] constexpr auto makeCarryProp(double const carry_rate) noexcept(!s_cts.debug)
+      -> double
+    {
+      auto [_, carry] = makeProps(std::array<double, 0> { }, std::array<double, 1> { carry_rate });
+      return carry;
     }
     
-        
-    /* takeRate functions: pass through to takeProp functions */
-    
-    // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
+    // Take rates only:
     template <Container C>
-    [[nodiscard]] constexpr auto takeRate(C const& rates) noexcept(!s_cts.debug && !Resizeable<C>)
+    [[nodiscard]] constexpr auto takeRate(C const& take_rate) noexcept(!s_cts.debug && !Resizeable<C>)
       -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
     {
-      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
-      
-      auto props = makeProp(rates);      
-      return takeProp(props);      
+      auto [take, _] = takeCarryRates(take_rate, std::array<double, 0> {});     
+      return take;  
     }
   
-    // Forwarding overload for size-1 array (passes by value not const ref):
-    [[nodiscard]] constexpr auto takeRate(std::array<double, 1> const rate) noexcept(!s_cts.debug)
-      -> std::array<double, 1>
-    {      
-      return std::array<double, 1> { takeRate(rate[0]) };
-    }
-    
-    // Overload for simple case of a single rate:
-    [[nodiscard]] constexpr auto takeRate(double const rate) noexcept(!s_cts.debug)
+    // Take a single rate only:
+    [[nodiscard]] constexpr auto takeRate(double const take_rate) noexcept(!s_cts.debug)
       -> Value
-    {      
-      double const prop = makeProp(rate);
-      return takeProp(prop);
+    {
+      auto [take, _] = takeCarryRates(std::array<double, 1> { take_rate }, std::array<double, 0> {});
+      return take.front();
     }
     
-    
-    /* takeCarryRate function: convinience wrapper for use from R (so we don't care about efficiency) */
-    
-    // Struct for return type of takeCarryRate:
-    // TODO: make private?
-    template <Container C>
-    struct TakeCarryValues
+    // Carry (always a single) rate only:
+    [[nodiscard]] constexpr auto carryRate(double const carry_rate) noexcept(!s_cts.debug)
+      -> Value
     {
-      C take = {};
-      double carry = 0.0;
-    };
-    
-    // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
-    template <Container C>
-    [[nodiscard]] constexpr auto takeCarryRate(C const& take_rates, double const carry_rate) noexcept(!s_cts.debug && !Resizeable<C>)
-      -> std::conditional_t<Resizeable<C>, TakeCarryValues<std::vector<Value>>, TakeCarryValues<std::array<Value, C{}.size()>>>
-    {
-      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
-      
-      if (empty()) {
-        // TODO
-        m_bridge.stop("UNIMPLEMENTED");
-      }
-      
-      // Add the adjusted carry rate to the end of the take rates:
-      auto const rates = [&](){
-        if constexpr (Resizeable<C>) {
-          std::vector<double>(take_rates.size()+1U);
-        } else {
-          std::array<double, decltype(take_rates){}.size()+1U>();
-        }        
-      }();
-      std::copy(take_rates.begin(), take_rates.end(), rates.begin());
-      rates.back() = adjustCarryRate(carry_rate);
-      
-      // Convert to proportions:
-      auto props = makeProp(rates);
-      
-      static_assert(false, "This is wrong; we need a takeCarryProp that first does take then finally carry, but adjusting stochastic correctly");
-      // TODO: make takeCarryProp the only method that does anything; template and specialise for none vs scalar carry and none vs scalar vs Container take accordingly
-      
-      // Pass down all but the carry prop:
-      auto takes = takeProp(std::views::take(props, take_rates.size()));
-        
-      // Then do the carry:
-      Value carry = carryProp(props.back());
-      
-      // Separate for return:
-      TakeCarryValues rv;
-      if constexpr (Resizeable<C>) rv.take.resize(take_rates.size());
-      std::copy(takes.begin(), takes.end(), rv.take.begin());
-      rv.carry = carry;
-      
-      return rv;
+      auto [_, carry] = takeCarryRates(std::array<double, 0> {}, std::array<double, 1> { carry_rate });
+      return carry.front();
     }
   
-    // Forwarding overload for simple case of a single rate:
-    [[nodiscard]] constexpr auto takeCarryRate(double const take_rate, double const carry_rate) noexcept(!s_cts.debug)
-      -> Value
-    {      
-      return takeCarryRate(std::array<double, 1> { take_rate }, carry_rate);
-    }
-  
-    
-    /* takeProp functions: pass through to double overload of takeProp function */
-    
-    // Works with array or vector input rates (maybe also Rcpp::NumericVector ??):
-    template <Container C>
-    [[nodiscard]] constexpr auto takeProp(C const& props) noexcept(!s_cts.debug && !Resizeable<C>)
-      -> std::conditional_t<Resizeable<C>, std::vector<Value>, std::array<Value, C{}.size()>>
-    {    
-      static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");
-      // Get return type, which will be C<Value>:
-      using R = decltype(this->takeProp(props));
-      
-      if (empty()) {
-        // TODO
-        m_bridge.stop("UNIMPLEMENTED");
-      }
-      
-      // Flag that an update is in progress:
-      if constexpr (s_cts.debug) m_take_applied.value = false;
-            
-      // Need to zero-initialise for std::array:
-      R rv = [&](){
-        if constexpr (Resizeable<R>) {
-          return R(props.size(), static_cast<Value>(0.0));
-        } else {
-          return R {};
-        }
-      }();
-      
-      // Sanity check (clang complains if we use rv and props directly):
-      if constexpr (!Resizeable<R>) static_assert(R{}.size() == C{}.size());
-      validate();
-      
-      // For deterministic we only need to track prob, for stochastic we need prob and num:
-      /*
-      auto carry_forward = [](){
-        if constexpr (s_mtype==ModelType::Deterministic) {
-          struct
-          {
-            double prob = 1.0;
-          } tt;
-          return tt;
-          };
-        } else if constexpr (s_mtype==ModelType::Stochastic) {
-          return struct
-          {
-            double prob = 1.0;
-            int num = 0;
-          };
-        } else {
-          static_assert(false, "Unrecognised ModelType in takeProp");
-        } 
-      }();
-      for (index i=0; i<ssize(rv); ++i) {
-        // Subtract the 
-      } */
-
-      // TODO: delegate to carryProp last, if there is a carryProp
-      
-      //static_assert(false, "This is wrong:  need to follow rmultinom code process for adding up consecutive probs");
-      if constexpr (s_mtype==ModelType::Deterministic) {
-        {
-      // For deterministic we can just pass the work down:
-          //rv[i] = takeProp(props[i]);
-        }
-      // For stochastic we need multinomial:
-      } else if constexpr (s_mtype==ModelType::Stochastic) {
-        
-        auto probs = [&](){
-          if constexpr (Resizeable<C>) {
-            return std::vector<double>(props.size()+1U);
-          } else {
-            return std::array<double, C{}.size()+1U>();
-          }
-        }();
-        
-        double tp = 0.0;
-        for (index i=0; i<ssize(props); ++i)
-        {
-          tp += props[i];
-          probs[i] = props[i];
-        }
-        probs.back() = 1.0 - tp;
-        
-        for (auto& comp : m_working)
-        {
-          auto take = m_bridge.rmultinom(comp, probs);
-          for (index i=0; i<ssize(rv); ++i)
-          {
-            rv[i] += take[i];
-          }
-          comp = take.back();
-        }
-        
-      } else {
-        static_assert(false, "Unrecognised ModelType in takeProp");
-      } 
-    
-      return rv;
-    }
-    
-    // Forwarding overload for size-1 array (passes by value not const ref):
-    [[nodiscard]] constexpr auto takeProp(std::array<double, 1> const rate) noexcept(!s_cts.debug)
-      -> std::array<double, 1>
-    {      
-      return std::array<double, 1> { takeProp(rate[0]) };
-    }
-  
-    // Function that actually does the work
-    [[nodiscard]] constexpr auto takeProp(double const prop) noexcept(!s_cts.debug)
-      -> Value
-    {
-      Value total = zero();
-        
-      // Flag that an update is in progress:
-      if constexpr (s_cts.debug) m_take_applied.value = false;
-      
-      for (index c=0; c<ssize(m_current); ++c)
-      {
-        Value const change = [&](){
-          if constexpr (s_mtype==ModelType::Deterministic) {
-            return m_working[c] * prop;
-          } else if constexpr (s_mtype==ModelType::Stochastic) {
-            return m_bridge.rbinom(m_working[c], prop);
-          } else {
-            static_assert(false, "Unrecognised ModelType in takeProp");
-          }              
-        }();
-        m_working[c] -= change;
-        total += change;
-      }
-        
-      return total;
-    }
-    
-    
-    /* carryRate and carryProp methods */
-    
-    // Pass down to carryProp:
-    [[nodiscard]] constexpr auto carryRate(double const rate) noexcept(!s_cts.debug)
-      -> Value
-    {
-      return carryProp(makeCarryProp(rate));
-    }
-    
-    // Do the work
-    [[nodiscard]] constexpr auto carryProp(double const prop) noexcept(!s_cts.debug)
-      -> Value
-    {
-      if constexpr (s_cts.debug) {
-        // Check updates have been done since last time:
-        if (!m_carry_applied.value) m_bridge.stop("Attempt to call carryProp more than once without applyChanges");
-        // Flag that an update is in progress:
-        m_carry_applied.value = false;
-      }
-      
-      if (empty()) return zero();
-      
-      const Value carried = [&](){
-
-        if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
-        
-          Value carry = zero();
-          for (int i=0; i<ssize(m_working); ++i)
-          {
-            const Value n = m_working[i];
-            m_working[i] += carry;
-            
-            if constexpr (s_mtype==ModelType::Deterministic) {
-              carry = n*prop;
-            } else if constexpr (s_mtype==ModelType::Stochastic) {
-              carry = m_bridge.rbinom(n, prop);
-            } else {
-              static_assert(false, "Unrecognised ModelType in carryProp");
-            }
-            
-            m_working[i] -= carry;
-          }
-          return carry;
-        
-        } else if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
-
-          static_assert(false, "CarryType::Immediate is not yet implemented");
-        
-        } else if constexpr (s_cinfo.carry_type == CarryType::None) {
-          static_assert(false, "Invalid path to call carryProp with disabled compartment");
-        
-        } else {
-          static_assert(false, "Unhandled CarryType in carryProp");
-        }
-        
-      }();
-      
-      return carried + getCarryThrough();
-    }
-    
-    
-    /* Underlying functions that do the work (even when we have only a single proportion) */
-
-    // makeProps to convert rates into proportions, inculding adjustment of carry_rate where needed:
-    template <Container C, std::size_t s_nc>
-    [[nodiscard]] constexpr auto makeProps(
-      C const& take_rate,                         // Any container, including size-0
-      std::array<double, s_nc> const carry_rate   // Either size-0 or size-1 (and therefore pass by value)
-    ) noexcept(s_cts.debug)
-    {
-      
-    }
-
     // takeCarryRates to call makeProps then takeCarryProps:
     template <Container C, std::size_t s_nc>
     [[nodiscard]] constexpr auto takeCarryRates(
@@ -766,13 +442,106 @@ namespace blofeld
       return takeCarryProps(take_props, carry_props);
     }
 
+    
+    /* Underlying functions that do the work (even when we have only a single proportion) */
+
+    // makeProps to convert rates into proportions, inculding adjustment of carry_rate where needed:
+    template <Container C, std::size_t s_nc>
+    [[nodiscard]] constexpr auto makeProps(
+      C const& take_rate,                         // Any container, including size-0
+      std::array<double, s_nc> const carry_rate   // Either size-0 or size-1 (and therefore pass by value)
+    ) noexcept(s_cts.debug)
+    {
+      // Pre-conditions:
+      static_assert(std::same_as<typename C::value_type, double>, "Invalid arguments to makeProps:  container of double expected for C");      
+      static_assert(s_nc <= 1U, "Invalid arguments to makeProps: invalid std::array<double, 2+> passed as carry_rate");
+      
+      static_assert(s_nc==0U || s_nc==1U, "Logic error in makeProps:  s_nc not in {0,1}");
+      constexpr bool s_carry = s_cinfo.carry_type!=CarryType::None && s_nc!=0U;
+      // Note: if CarryType::None then simply ignore any provided carry_rate and convert to 0
+      // \Pre-conditions
+      
+      // Adjust competing rates (accumulate works with size-0 arrays):
+      double const carry_adj = [&](){
+        if constexpr (!s_carry || s_cinfo.carry_type == CarryType::None) {
+          return 0.0;
+        } else if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
+          return carry_rate.front() * static_cast<double>(ssize(m_working));
+        } else if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
+          static_assert(false, "Logic error in makeProps: CarryType::Immediate is not yet implemented");
+          return carry_rate.front() * static_cast<double>(ssize(m_working));
+        } else {
+          static_assert(false, "Logic error in makeProps: unhandled CarryType");
+        }
+      }();
+      double const sumrates = std::accumulate(take_rate.begin(), take_rate.end(), carry_adj);
+      double const adj = sumrates==0.0 ? 0.0 : ((1.0 - std::exp(-sumrates)) / sumrates);
+      
+      // Re-usable lambda:
+      auto rateToProp = [adj](double const rate) {
+        return 1.0 - std::exp(-rate * adj);
+      };
+          
+      // Return values:
+      auto rv = [&](){
+        if constexpr (Fixedsize<C> && C{}.size()==0U) {
+          if constexpr (s_carry) {
+            // Only carry needed:
+            struct {
+              std::array<double, 0> take_prop;
+              std::array<double, 1> carry_prop;
+            } tt {};
+            return tt;
+          } else {
+            // Nothing needed:
+            struct {
+              std::array<double, 0> take_prop;
+              std::array<double, 0> carry_prop;
+            } tt {};
+            return tt;
+          }
+        } else {
+          using R = std::conditional_t<
+            Resizeable<C>,
+            std::vector<double>,
+            std::array<double, C{}.size()>
+          >;
+          if constexpr (s_carry) {
+            // Both take and carry needed:
+            struct {
+              R take_prop {};
+              std::array<double, 1> carry_prop;
+            } tt {};
+            if constexpr (Resizeable<C>) tt.take_prop.resize(take_rate.size());
+            return tt;
+          } else {
+            // Only take needed:
+            struct {
+              R take_prop {};
+              std::array<double, 0> carry_prop;
+            } tt {};
+            if constexpr (Resizeable<C>) tt.take_prop.resize(take_rate.size());
+            return tt;
+          }
+        } 
+      }();
+      
+      // Update the values:
+      if constexpr (Resizeable<C> || decltype(take_rate){}.size() > 0U) {
+        if constexpr (s_cts.debug) {
+          if (!identical(ssize(take_rate), ssize(rv.take_prop))) m_bridge.stop("Logic error in makeProps: unequal length take_rate and take_prop");
+        }
+        for (index i=0; i<ssize(take_rate); ++i)
+        {
+          rv.take_prop[i] = rateToProp(take_rate[i]);
+        }
+      }
+      if constexpr (s_carry) rv.carry_prop.front() = rateToProp(carry_adj);
+
+      return rv;  
+    }
+
     // takeCarryProps to do the actual work:
-    /* EFFICIENCY CONCERNS
-    // godbolt.org strongly suggests that passing a size-0 array by (const) ref is the same as by value i.e. no instructions omitted
-    // Also it looks like passing a size-1 array by (const) ref is the same as by value is the same as the value of arr.front()
-    // Passing a size-2+ array by const ref is cheaper than by value, as expected
-    // Conclusion: takeCarryProps should be efficient for all needs
-    */    
     template <Container C, std::size_t s_nc>
     [[nodiscard]] constexpr auto takeCarryProps(
       [[maybe_unused]] C const& take_prop,                        // Any container, including size-0 - ignored if inactive
@@ -780,19 +549,37 @@ namespace blofeld
     ) noexcept(s_cts.debug)
     {
       // Pre-conditions:
-      static_assert(std::same_as<typename C::value_type, double>, "Invalid arguments to takeCarryProp:  container of double expected for C");      
-      static_assert(s_nc <= 1U, "Invalid arguments to takeCarryProp: iInvalid std::array<double, 2+> passed as carry_prop");
+      static_assert(std::same_as<typename C::value_type, double>, "Invalid arguments to takeCarryProps:  container of double expected for C");      
+      static_assert(s_nc <= 1U, "Invalid arguments to takeCarryProps: iInvalid std::array<double, 2+> passed as carry_prop");
       
-      static_assert(s_nc==0U || s_nc==1U, "Logic error in takeCarryProp:  s_nc not in {0,1}");      
-      constexpr bool s_carry = (s_cinfo.carry_type == CarryType::None || s_nc == 0U) ? false : true;
+      static_assert(s_nc==0U || s_nc==1U, "Logic error in takeCarryProps:  s_nc not in {0,1}");      
+      constexpr bool s_carry = s_cinfo.carry_type!=CarryType::None && s_nc!=0U;
       // Note: if CarryType::None then simply ignore any provided carry_prop
       
       if constexpr (s_cts.debug) {
         double sumprop = std::accumulate(take_prop.begin(), take_prop.end(), 0.0);
         if constexpr (s_carry) sumprop += carry_prop[0];
-        if (sumprop > 1.0) m_bridge.stop("Invalid arguments to takeCarryProp:  sum of props exceeds 1");
+        if (sumprop > 1.0) m_bridge.stop("Invalid arguments to takeCarryProps:  sum of props exceeds 1");
       }
       // \Pre-conditions
+      
+      // Flag that an update is in progress:
+      if constexpr (s_cts.debug) {
+        m_take_applied.value = false;
+        
+        // Check carry rates are applied exactly once:
+        if constexpr (s_carry) {
+          if (!m_carry_applied.value) m_bridge.stop("Runtime error: attempt to call carryProp more than once without applyChanges");
+          m_carry_applied.value = false;
+          /* TODO: uncomment below and update applyChanges to match
+          if constexpr (Fixedsize<C> && !C{}.empty()) {
+            m_carry_applied.value = false;
+          } else if constexpr (Resizeable<C>) {
+            if (!m_working.empty()) m_carry_applied.value = false;
+          }
+          */
+        }
+      }
       
       // Set up different return structs depending on what we are going to need:
       auto rv = [&](){
@@ -840,7 +627,7 @@ namespace blofeld
       
       // Sanity checks:
       if constexpr (s_cts.debug && (Resizeable<C> || C{}.size()>0U)) {
-        if (rv.take.size() != take_prop.size()) m_bridge.stop("Logic error in takeCarryProp:  rv and take_prop unequal size");
+        if (rv.take.size() != take_prop.size()) m_bridge.stop("Logic error in takeCarryProps:  rv and take_prop unequal size");
       }
       
       // Short circuit in case we are inactive:
@@ -888,7 +675,7 @@ namespace blofeld
             } tt;
             return tt;
           } else {
-            static_assert(false, "Unhandled ModelType in takeCarryProp");
+            static_assert(false, "Unhandled ModelType in takeCarryProps");
           }
         }();
         
@@ -908,14 +695,14 @@ namespace blofeld
               return val;
               
             } else {
-              static_assert(false, "Logic error in takeCarryProp: unhandled ModelType");
+              static_assert(false, "Logic error in takeCarryProps: unhandled ModelType");
             }
           }();          
           
           // Error and bounds checking:
           if constexpr (s_cts.debug) {
-            if (tt < zero()) m_bridge.stop("Logic error in takeCarryProp:  tt < 0");
-            if (i >= ssize(rv.take)) m_bridge.stop("Bounds check error in takeCarryProp:  rv.take too small");
+            if (tt < zero()) m_bridge.stop("Logic error in takeCarryProps:  tt < 0");
+            if (i >= ssize(rv.take)) m_bridge.stop("Bounds check error in takeCarryProps:  rv.take too small");
           }          
           
           // Changes:
@@ -941,13 +728,13 @@ namespace blofeld
             } else if constexpr (s_mtype==ModelType::Stochastic) {
               // Sanity check:
               if constexpr (s_cts.debug) {
-                if (!identical(1.0-removed.prop, std::accumulate(take_prop.begin(), take_prop.end(), 0.0), s_cts.tol)) m_bridge.stop("Logic error in takeCarryProp:  1-removed.prop ({}) != sum(take_prop) ({})", 1.0-removed.prop, std::accumulate(take_prop.begin(), take_prop.end(), 0.0));
+                if (!identical(1.0-removed.prop, std::accumulate(take_prop.begin(), take_prop.end(), 0.0), s_cts.tol)) m_bridge.stop("Logic error in takeCarryProps:  1-removed.prop ({}) != sum(take_prop) ({})", 1.0-removed.prop, std::accumulate(take_prop.begin(), take_prop.end(), 0.0));
               }
               // For stochastic we also need to use the adjusted probability:
               return m_bridge.rbinom(cc - removed.value, carry_prop[0] / removed.prop);
               
             } else {
-              static_assert(false, "Logic error in takeCarryProp: unhandled ModelType");
+              static_assert(false, "Logic error in takeCarryProps: unhandled ModelType");
             }
           }();          
         
@@ -962,11 +749,11 @@ namespace blofeld
           
           static_assert(
             s_cinfo.carry_type == CarryType::Sequential || s_cinfo.carry_type == CarryType::Immediate, 
-            "Logic error in takeCarryProp:  unhandled CarryType"        
+            "Logic error in takeCarryProps:  unhandled CarryType"        
           );
         
         } else {
-          static_assert(s_nc==0U, "Logic error in takeCarryProp:  s_nc not in {1,0}");
+          static_assert(s_nc==0U, "Logic error in takeCarryProps:  s_nc not in {1,0}");
         }
         
         // Then finally apply changes to m_working:
@@ -976,6 +763,12 @@ namespace blofeld
       // Then add the final carry value:
       if constexpr (s_carry) {
         rv.carry.front() = carry.value;
+      }
+      
+      // Sanity check:
+      if constexpr (s_cts.debug) {
+        // TODO: have a struct holding the previous total and the running total changes, then
+        // when running applyChanges and takeCarryProb ensure this add up
       }
       
       return rv;
