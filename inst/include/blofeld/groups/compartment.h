@@ -469,7 +469,7 @@ namespace blofeld
           return carry_rate.front() * static_cast<double>(ssize(m_working));
         } else if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
           static_assert(false, "Logic error in makeProps: CarryType::Immediate is not yet implemented");
-          return carry_rate.front() * static_cast<double>(ssize(m_working));
+          return carry_rate.front();
         } else {
           static_assert(false, "Logic error in makeProps: unhandled CarryType");
         }
