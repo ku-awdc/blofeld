@@ -17,7 +17,6 @@ namespace blofeld
   // TODO: change inheritence  to composition
   // TODO: implement copy/move constructors assuming/checking lengths are equal and copying elements using std::copy
   
-  // TODO: change isActive to empty (consistency with std::vector)
   // TODO: allow std::array<..., 0>
   // TODO: make this more robust:
   /*
@@ -52,7 +51,7 @@ namespace blofeld
     template<typename T>
     concept BlofeldContainer = Container<T> && requires(T x)
     {
-      { x.isActive() } -> std::same_as<bool>;
+      { x.empty() } -> std::same_as<bool>;
       { x.ssize() } -> std::same_as<int>;
     };
     
@@ -84,10 +83,10 @@ namespace blofeld
         return 0;
       }
       
-      [[nodiscard]] static constexpr auto isActive() noexcept
+      [[nodiscard]] static constexpr auto empty() noexcept
         -> bool
       {
-        return false;
+        return true;
       }
       
     };
@@ -121,10 +120,10 @@ namespace blofeld
         return s_n;
       }
             
-      [[nodiscard]] static constexpr auto isActive() noexcept
+      [[nodiscard]] static constexpr auto empty() noexcept
         -> bool
       {
-        return true;
+        return false;
       }      
       
     };
@@ -173,18 +172,12 @@ namespace blofeld
         return s_max;
       }
 
-      [[nodiscard]] constexpr auto isActive() const noexcept
-        -> bool
-      {
-        return (size() > 0U);
-      }      
-      
       [[nodiscard]] constexpr auto empty() const noexcept
         -> bool
       {
-        return isActive();
-      }
-      
+        return (size() == 0U);
+      }      
+            
       // Temporary until we have C++26 inplace_vector:
       constexpr auto end() noexcept
       {
@@ -243,10 +236,10 @@ namespace blofeld
         return static_cast<int>(this->size());
       }
       
-      [[nodiscard]] auto isActive() const noexcept
+      [[nodiscard]] auto empty() const noexcept
         -> bool
       {
-        return (this->size() > 0U);
+        return (this->size() == 0U);
       }      
       
     };

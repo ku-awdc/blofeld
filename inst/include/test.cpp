@@ -13,7 +13,7 @@
 #include "blofeld/groups/compartment.h"
 
 // Legacy for supporting Sandra:
-#include "blofeld/groups/SEIDRVMZgroup.h"
+// #include "blofeld/groups/SEIDRVMZgroup.h"
 
 
 int main ()
@@ -94,6 +94,13 @@ int main ()
     cmpt.insert(10);
     auto rvs = cmpt.carryRate(1.0);
     bridge.println( "Carried: {}", rvs);    
+  }  
+  bridge.println("Cmpt: {}; sum = {}", cmpt, 0+cmpt);
+
+  {
+    auto rvs = cmpt.takeCarryProps(std::array<double, 1>{ 0.1 }, std::array<double, 1> { 0.8 });
+    bridge.println( "Take + carried: {} + {}", std::accumulate(rvs.take.begin(), rvs.take.end(), cmpt.zero()), rvs.carry);
+    cmpt.applyChanges();
   }  
   bridge.println("Cmpt: {}; sum = {}", cmpt, 0+cmpt);
 

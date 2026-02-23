@@ -10,6 +10,7 @@
 
 #include "./compartment_types.h"
 #include "./container.h"
+#include "../utilities/identical.h"
 
 namespace blofeld
 {
@@ -33,7 +34,6 @@ namespace blofeld
     };
     
   } // namespace internal
-
 
   // Note: methods are marked constexpr but using that requires a constexpr bridge!
   template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
@@ -68,7 +68,7 @@ namespace blofeld
     internal::MaybeEmpty<bool, s_cts.debug> m_carry_applied { };
 
     // Used when size == 0:
-    internal::MaybeEmpty<Value, Resizeable<decltype(m_current)> || decltype(m_working){}.size()==0U> m_carry_through { };
+    internal::MaybeEmpty<Value, Resizeable<decltype(m_current)> || decltype(m_working){}.empty()> m_carry_through { };
     
     [[nodiscard]] constexpr auto setCarryThrough([[maybe_unused]] Value const value) noexcept
       -> bool
@@ -78,7 +78,7 @@ namespace blofeld
           m_carry_through.value = value;
           return true;
         }
-      } else if constexpr (decltype(m_working){}.size()==0U) {
+      } else if constexpr (decltype(m_working){}.empty()) {
          m_carry_through.value = value;
          return true;
       } else {
@@ -92,7 +92,7 @@ namespace blofeld
     {
       if constexpr (Resizeable<decltype(m_current)>) {
         if (m_current.size() == 0U) return m_carry_through.value;
-      } else if constexpr (decltype(m_working){}.size()==0U) {
+      } else if constexpr (decltype(m_working){}.empty()) {
         return m_carry_through.value;
       } else {
         // Fall through
@@ -502,6 +502,11 @@ namespace blofeld
     {
       static_assert(std::same_as<typename C::value_type, double>, "Type mis-match: container of double expected for C");      
       
+      if (empty()) {
+        // TODO
+        m_bridge.stop("UNIMPLEMENTED");
+      }
+      
       // Add the adjusted carry rate to the end of the take rates:
       auto const rates = [&](){
         if constexpr (Resizeable<C>) {
@@ -515,6 +520,9 @@ namespace blofeld
       
       // Convert to proportions:
       auto props = makeProp(rates);
+      
+      static_assert(false, "This is wrong; we need a takeCarryProp that first does take then finally carry, but adjusting stochastic correctly");
+      // TODO: make takeCarryProp the only method that does anything; template and specialise for none vs scalar carry and none vs scalar vs Container take accordingly
       
       // Pass down all but the carry prop:
       auto takes = takeProp(std::views::take(props, take_rates.size()));
@@ -550,6 +558,11 @@ namespace blofeld
       // Get return type, which will be C<Value>:
       using R = decltype(this->takeProp(props));
       
+      if (empty()) {
+        // TODO
+        m_bridge.stop("UNIMPLEMENTED");
+      }
+      
       // Flag that an update is in progress:
       if constexpr (s_cts.debug) m_take_applied.value = false;
             
@@ -566,12 +579,37 @@ namespace blofeld
       if constexpr (!Resizeable<R>) static_assert(R{}.size() == C{}.size());
       validate();
       
-      // For deterministic we can just pass the work down:
-      static_assert(false, "This is wrong:  need to follow rmultinom code process for adding up consecutive probs");
+      // For deterministic we only need to track prob, for stochastic we need prob and num:
+      /*
+      auto carry_forward = [](){
+        if constexpr (s_mtype==ModelType::Deterministic) {
+          struct
+          {
+            double prob = 1.0;
+          } tt;
+          return tt;
+          };
+        } else if constexpr (s_mtype==ModelType::Stochastic) {
+          return struct
+          {
+            double prob = 1.0;
+            int num = 0;
+          };
+        } else {
+          static_assert(false, "Unrecognised ModelType in takeProp");
+        } 
+      }();
+      for (index i=0; i<ssize(rv); ++i) {
+        // Subtract the 
+      } */
+
+      // TODO: delegate to carryProp last, if there is a carryProp
+      
+      //static_assert(false, "This is wrong:  need to follow rmultinom code process for adding up consecutive probs");
       if constexpr (s_mtype==ModelType::Deterministic) {
-        for (index i=0; i<ssize(rv); ++i)
         {
-          rv[i] = takeProp(props[i]);
+      // For deterministic we can just pass the work down:
+          //rv[i] = takeProp(props[i]);
         }
       // For stochastic we need multinomial:
       } else if constexpr (s_mtype==ModelType::Stochastic) {
@@ -664,7 +702,8 @@ namespace blofeld
         m_carry_applied.value = false;
       }
       
-      // TODO: implement isActive method that can be used in all applyRates etc functions
+      if (empty()) return zero();
+      
       const Value carried = [&](){
 
         if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
@@ -704,6 +743,245 @@ namespace blofeld
     }
     
     
+    /* Underlying functions that do the work (even when we have only a single proportion) */
+
+    // makeProps to convert rates into proportions, inculding adjustment of carry_rate where needed:
+    template <Container C, std::size_t s_nc>
+    [[nodiscard]] constexpr auto makeProps(
+      C const& take_rate,                         // Any container, including size-0
+      std::array<double, s_nc> const carry_rate   // Either size-0 or size-1 (and therefore pass by value)
+    ) noexcept(s_cts.debug)
+    {
+      
+    }
+
+    // takeCarryRates to call makeProps then takeCarryProps:
+    template <Container C, std::size_t s_nc>
+    [[nodiscard]] constexpr auto takeCarryRates(
+      C const& take_rate,                         // Any container, including size-0
+      std::array<double, s_nc> const carry_rate   // Either size-0 or size-1 (and therefore pass by value)
+    ) noexcept(s_cts.debug)
+    {
+      auto [take_props, carry_props] = makeProps(take_rate, carry_rate);
+      return takeCarryProps(take_props, carry_props);
+    }
+
+    // takeCarryProps to do the actual work:
+    /* EFFICIENCY CONCERNS
+    // godbolt.org strongly suggests that passing a size-0 array by (const) ref is the same as by value i.e. no instructions omitted
+    // Also it looks like passing a size-1 array by (const) ref is the same as by value is the same as the value of arr.front()
+    // Passing a size-2+ array by const ref is cheaper than by value, as expected
+    // Conclusion: takeCarryProps should be efficient for all needs
+    */    
+    template <Container C, std::size_t s_nc>
+    [[nodiscard]] constexpr auto takeCarryProps(
+      [[maybe_unused]] C const& take_prop,                        // Any container, including size-0 - ignored if inactive
+      [[maybe_unused]] std::array<double, s_nc> const carry_prop  // Either size-0 or size-1 (and therefore pass by value) - ignored if inactive or CarryType::None
+    ) noexcept(s_cts.debug)
+    {
+      // Pre-conditions:
+      static_assert(std::same_as<typename C::value_type, double>, "Invalid arguments to takeCarryProp:  container of double expected for C");      
+      static_assert(s_nc <= 1U, "Invalid arguments to takeCarryProp: iInvalid std::array<double, 2+> passed as carry_prop");
+      
+      static_assert(s_nc==0U || s_nc==1U, "Logic error in takeCarryProp:  s_nc not in {0,1}");      
+      constexpr bool s_carry = (s_cinfo.carry_type == CarryType::None || s_nc == 0U) ? false : true;
+      // Note: if CarryType::None then simply ignore any provided carry_prop
+      
+      if constexpr (s_cts.debug) {
+        double sumprop = std::accumulate(take_prop.begin(), take_prop.end(), 0.0);
+        if constexpr (s_carry) sumprop += carry_prop[0];
+        if (sumprop > 1.0) m_bridge.stop("Invalid arguments to takeCarryProp:  sum of props exceeds 1");
+      }
+      // \Pre-conditions
+      
+      // Set up different return structs depending on what we are going to need:
+      auto rv = [&](){
+        if constexpr (Fixedsize<C> && C{}.size()==0U) {
+          if constexpr (s_carry) {
+            // Only carry needed:
+            struct {
+              std::array<Value, 0> take;
+              std::array<Value, 1> carry = { zero() };
+            } tt;
+            return tt;
+          } else {
+            // Nothing needed:
+            struct {
+              std::array<Value, 0> take;
+              std::array<Value, 0> carry;
+            } tt;
+            return tt;
+          }
+        } else {
+          using R = std::conditional_t<
+            Resizeable<C>,
+            std::vector<Value>,
+            std::array<Value, C{}.size()>
+          >;
+          if constexpr (s_carry) {
+            // Both take and carry needed:
+            struct {
+              R take {};
+              std::array<Value, 1> carry = { zero() };
+            } tt;
+            if constexpr (Resizeable<C>) tt.take.resize(take_prop.size());
+            return tt;
+          } else {
+            // Only take needed:
+            struct {
+              R take {};
+              std::array<Value, 0> carry;
+            } tt;
+            if constexpr (Resizeable<C>) tt.take.resize(take_prop.size());
+            return tt;
+          }
+        } 
+      }();
+      
+      // Sanity checks:
+      if constexpr (s_cts.debug && (Resizeable<C> || C{}.size()>0U)) {
+        if (rv.take.size() != take_prop.size()) m_bridge.stop("Logic error in takeCarryProp:  rv and take_prop unequal size");
+      }
+      
+      // Short circuit in case we are inactive:
+      if constexpr (s_carry && Fixedsize<decltype(m_working)> && decltype(m_working){}.empty()) {
+        rv.carry.front() = getCarryThrough();
+        return rv;
+      } else if constexpr (s_carry && Resizeable<decltype(m_working)>) {
+        if (m_working.empty()) {
+          rv.carry.front() = getCarryThrough();
+          return rv;
+        } else {
+          // Sanity check:
+          if constexpr (s_cts.debug) if (!identical(getCarryThrough(), zero())) m_bridge.stop("Logic error: non-zero carry-through for active compartment");
+        }
+      } else {
+        // Sanity check:
+        if constexpr (s_carry && s_cts.debug) if (!identical(getCarryThrough(), zero())) m_bridge.stop("Logic error: non-zero carry-through for active compartment");
+      }
+      
+      // If we have a carry prop then we need to track that:
+      auto carry = [](){
+        if constexpr (s_carry) {
+          struct { double value = zero(); } tt;
+          return tt;
+        } else {
+          struct { } tt;
+          return tt;
+        }
+      }();
+      
+      // Outer loop is the sub-compartment, as we need to do everything (take and carry) together:
+      for (auto& cc : m_working)
+      {
+        // For Deterministic we just need the total removed, for Stochastic we also need the adjusted probability:
+        auto removed = [](){
+          if constexpr (s_mtype==ModelType::Deterministic) {
+            struct {
+              Value value = zero();
+            } tt;
+            return tt;
+          } else if constexpr (s_mtype==ModelType::Stochastic) {
+            struct {
+              Value value = zero();
+              double prop = 1.0;
+            } tt;
+            return tt;
+          } else {
+            static_assert(false, "Unhandled ModelType in takeCarryProp");
+          }
+        }();
+        
+        // First deal with the take proportion(s) - this could be a size-0 C:
+        for (index i=0; i<ssize(take_prop); ++i)
+        {
+          // Calculate the removal:
+          Value tt = [&](){
+            if constexpr (s_mtype==ModelType::Deterministic) {
+              // For deterministic it is just a fixed proportion:
+              return cc*take_prop[i];
+              
+            } else if constexpr (s_mtype==ModelType::Stochastic) {
+              // For stochastic we also need to adjust the probability:
+              int const val = m_bridge.rbinom(cc - removed.value, take_prop[i] / removed.prop);
+              removed.prop -= take_prop[i];
+              return val;
+              
+            } else {
+              static_assert(false, "Logic error in takeCarryProp: unhandled ModelType");
+            }
+          }();          
+          
+          // Error and bounds checking:
+          if constexpr (s_cts.debug) {
+            if (tt < zero()) m_bridge.stop("Logic error in takeCarryProp:  tt < 0");
+            if (i >= ssize(rv.take)) m_bridge.stop("Bounds check error in takeCarryProp:  rv.take too small");
+          }          
+          
+          // Changes:
+          removed.value += tt;
+          rv.take[i] += tt;
+        }
+
+        // Then deal with the carry proportion, if there is one:
+        if constexpr (s_carry) {
+        
+          // For CarryType::Immediate we need to apply any carry-forward beforehand:
+          if constexpr (s_cinfo.carry_type == CarryType::Immediate) {
+            static_assert(false, "NEEDS TESTING");
+            cc += carry.value;
+          }
+        
+          // Calculate the carry:
+          Value tt = [&](){
+            if constexpr (s_mtype==ModelType::Deterministic) {
+              // For deterministic it is just a fixed proportion:
+              return cc*carry_prop[0];
+              
+            } else if constexpr (s_mtype==ModelType::Stochastic) {
+              // Sanity check:
+              if constexpr (s_cts.debug) {
+                if (!identical(1.0-removed.prop, std::accumulate(take_prop.begin(), take_prop.end(), 0.0), s_cts.tol)) m_bridge.stop("Logic error in takeCarryProp:  1-removed.prop ({}) != sum(take_prop) ({})", 1.0-removed.prop, std::accumulate(take_prop.begin(), take_prop.end(), 0.0));
+              }
+              // For stochastic we also need to use the adjusted probability:
+              return m_bridge.rbinom(cc - removed.value, carry_prop[0] / removed.prop);
+              
+            } else {
+              static_assert(false, "Logic error in takeCarryProp: unhandled ModelType");
+            }
+          }();          
+        
+          // For CarryType::Sequential we need to apply any carry-forward afterward:
+          if constexpr (s_cinfo.carry_type == CarryType::Sequential) {
+            cc += carry.value;
+          }
+          
+          // Carry forward to next subcompartment:
+          cc -= tt;
+          carry.value = tt;
+          
+          static_assert(
+            s_cinfo.carry_type == CarryType::Sequential || s_cinfo.carry_type == CarryType::Immediate, 
+            "Logic error in takeCarryProp:  unhandled CarryType"        
+          );
+        
+        } else {
+          static_assert(s_nc==0U, "Logic error in takeCarryProp:  s_nc not in {1,0}");
+        }
+        
+        // Then finally apply changes to m_working:
+        cc -= removed.value;        
+      }
+      
+      // Then add the final carry value:
+      if constexpr (s_carry) {
+        rv.carry.front() = carry.value;
+      }
+      
+      return rv;
+    }
+    
+    
     /* Forwarding methods */
     
     constexpr auto begin() noexcept
@@ -740,10 +1018,10 @@ namespace blofeld
     }
     
     // Note: is constexpr for Array etc but not Vector/InplaceVector
-    [[nodiscard]] constexpr auto isActive() const noexcept
+    [[nodiscard]] constexpr auto empty() const noexcept
       -> bool
     {
-      return m_current.isActive();
+      return m_current.empty();
     }    
     
   /*
