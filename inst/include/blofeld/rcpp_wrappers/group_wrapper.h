@@ -177,9 +177,9 @@ namespace blofeld
       >;
 
       auto lfun = [&](auto const& cc){
-        auto ptr = cc.ptr();
-        trcpp rc(ptr.size());
-        for(int i=0; i<ptr.size(); ++i) rc[i] = ptr[i];
+        auto vals = cc.getValues();
+        trcpp rc(vals.size());
+        for(int i=0; i<vals.size(); ++i) rc[i] = vals[i];
         return rc;
       };
 
@@ -222,9 +222,7 @@ namespace blofeld
       >;
 
       auto lfun = [&](auto const& cc){
-        auto ptr = cc.ptr();
-        trcpp rc(1);
-        for(int i=0; i<ptr.size(); ++i) rc[0] += ptr[i];
+        trcpp rc = { cc.get_sum() };
         return rc;
       };
 

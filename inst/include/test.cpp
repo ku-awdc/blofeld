@@ -1,14 +1,142 @@
 // clang++ -std=c++20 -Wall -pedantic -o test test.cpp
+// gcc-15 -std=c++20 -stdlib=libstdc++ -Wall -pedantic /opt/homebrew/lib/gcc/current/libstdc++.a -o test test.cpp
 
 // TODO: sort out include order
 
+//#include "blofeld/groups/compartment_types.h"
+#include "blofeld/groups/container.h"
+
+//#include "blofeld/utilities/bridge.h"
+#include "blofeld/utilities/bridge_cpp.h"
+#include "blofeld/utilities/container_formatter.h"
+
+#include "blofeld/groups/compartment.h"
+
+// Legacy for supporting Sandra:
+#include "blofeld/groups/SEIDRVMZgroup.h"
+
+
+int main ()
+{
+  
+  constexpr auto ci = blofeld::compartment_info(10, blofeld::ContainerType::Vector);
+  auto ctr = blofeld::internal::Container<double, ci.container_type, ci.n>();
+
+  struct CompileTimeSettings
+  {
+    bool const debug = true;
+    double const tol = 0.00001;
+    using Bridge = blofeld::BridgeMT19937;
+  };
+  
+  using Bridge = CompileTimeSettings::Bridge;
+  Bridge bridge;
+  
+  if constexpr (blofeld::Resizeable<decltype(ctr)>) {
+    bridge.println("RESIZEABLE");
+    
+    /*
+    // Compiler error if Array even though this branch isn't used:
+    ctr.resize(2);
+    bridge.println("{}, ssize: {}", ctr, std::ssize(ctr));
+  
+    ctr.resize(20);
+    bridge.println("{}", ctr);
+
+    ctr.resize(0);
+    bridge.println("{}", ctr);
+    */
+  }
+
+  std::array arr {1, 2, 3};
+  std::vector vec {4, 5, 6};
+  
+  //if constexpr (isFixedSize<decltype(arr)>)
+  if constexpr (blofeld::Container<decltype(arr)> && blofeld::Fixedsize<decltype(arr)>)
+  {
+    bridge.println( "is fixed size: {}", arr);
+  }
+
+  if constexpr (blofeld::Container<decltype(arr)> && blofeld::Resizeable<decltype(vec)>)
+  {
+    bridge.println( "is resizeable: {}", vec);
+  }
+  
+  bridge.println( "A container: {}", ctr );
+  
+  bridge.println( "A vector: {}", std::vector{1} );
+  bridge.println( "An array: {}", std::array<int,0>{} );
+  
+  constexpr CompileTimeSettings cts;
+  blofeld::Compartment<cts,  blofeld::ModelType::Stochastic, ci> cmpt(bridge);
+  
+  if (cmpt.size() > 0U) {
+    cmpt.distribute(100.0);
+  }
+  bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+0);
+
+  {
+    cmpt.insert(10);
+    auto rvs = cmpt.takeRate(std::array {1.0, 2.0});
+    auto crd = cmpt.carryRate(0.0);
+    cmpt.applyChanges();
+    bridge.println( "Rvs: {};  Carried: {}", rvs, crd);    
+  }
+  bridge.println("Cmpt: {}", cmpt);
+
+  {
+    auto [take, carry] = cmpt.makeProps(std::vector {1.0, 2.0}, std::array {0.5});
+    bridge.println( "Take props: {};  Carry props: {}", take, carry);
+  }  
+  bridge.println("Cmpt: {}", cmpt);
+
+  {
+    cmpt.insert(10);
+    auto rvs = cmpt.carryRate(1.0);
+    bridge.println( "Carried: {}", rvs);    
+    cmpt.applyChanges();
+  }  
+  bridge.println("Cmpt: {}; sum = {}", cmpt, 0+cmpt);
+
+  {
+    auto rvs = cmpt.takeCarryProps(std::array<double, 1>{ 0.1 }, std::array<double, 1> { 0.8 });
+    bridge.println( "Take + carried: {} + {}", std::accumulate(rvs.take.begin(), rvs.take.end(), cmpt.zero()), rvs.carry);
+    cmpt.applyChanges();
+  }  
+  bridge.println("Cmpt: {}; sum = {}", cmpt, 0+cmpt);
+
+  cmpt.reset();
+  bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+-0); // Note: operator- not implemented directly, as it doesn't make sense really
+  
+  constexpr blofeld::ModelType mt2 = blofeld::ModelType::Stochastic;
+  using GroupType = blofeld::SEIDRVMZgroup<cts, mt2,
+    ci, // S
+    ci, // E
+    ci, // L
+    ci, // I
+    ci, // D
+    ci, // R
+    ci, // V
+    ci, // M/C
+    ci  // Z
+  >;
+    
+  GroupType group(bridge);  
+  
+  for(int i=0; i<10000; ++i)
+  {
+    group.update();
+  }
+  
+  return 0;
+}
+
+/*
 #include "blofeld/groups/Compartment.h"
 #include "blofeld/groups/SEIDRVMZgroup.h"
 
 #include "blofeld/utilities/BridgeCpp.h"
 #include "blofeld/utilities/ContainerFormatter.h"
-
-#include "blofeld/Rcpp_wrappers/GroupWrapper.h"
 
 int main(int argc, char *argv[])
 {
@@ -89,3 +217,5 @@ int main(int argc, char *argv[])
   
   return 0;
 }
+
+*/

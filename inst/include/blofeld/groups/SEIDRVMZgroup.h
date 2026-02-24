@@ -1,9 +1,9 @@
 #ifndef BLOFELD_SEIDRVMZ_GROUP_H
 #define BLOFELD_SEIDRVMZ_GROUP_H
 
-#include "Group.h"
-#include "ModelCompTypes.h"
-#include "Compartment.h"
+#include "group.h"
+#include "compartment_types.h"
+#include "compartment.h"
 
 namespace blofeld
 {
@@ -39,7 +39,7 @@ namespace blofeld
 
   // TODO: have an inits struct to set Ns etc
 
-  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_L, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
+  template <auto s_cts, ModelType s_mtype, CompartmentInfo s_ctp_S, CompartmentInfo s_ctp_E, CompartmentInfo s_ctp_L, CompartmentInfo s_ctp_I, CompartmentInfo s_ctp_D, CompartmentInfo s_ctp_R, CompartmentInfo s_ctp_V, CompartmentInfo s_ctp_M, CompartmentInfo s_ctp_Z>
   struct SEIDRVMZstate
   {
     // For getting only:  always full state
@@ -55,17 +55,17 @@ namespace blofeld
     Compartment<s_cts, s_mtype, s_ctp_M> M;   // Dead from disease
   };
 
-  template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_L, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
+  template <auto s_cts, ModelType s_mtype, CompartmentInfo s_ctp_S, CompartmentInfo s_ctp_E, CompartmentInfo s_ctp_L, CompartmentInfo s_ctp_I, CompartmentInfo s_ctp_D, CompartmentInfo s_ctp_R, CompartmentInfo s_ctp_V, CompartmentInfo s_ctp_M, CompartmentInfo s_ctp_Z>
   class SEIDRVMZgroup : public Group<s_cts>
   {
   private:
 
     // TODO: make this a static consteval member of ModelType for re-use here and Compartment?
     using t_Value = std::conditional_t<
-      s_mtype == ModelType::deterministic,
+      s_mtype == ModelType::Deterministic,
       double,
       std::conditional_t<
-        s_mtype == ModelType::stochastic,
+        s_mtype == ModelType::Stochastic,
         int,
         void
       >
@@ -128,7 +128,7 @@ namespace blofeld
     double m_external_infection = 0.0;
 
     // Do we have death?
-    static constexpr size_t s_psd = [](){
+    static constexpr std::size_t s_psd = [](){
       if constexpr (s_have_death) {
         return 1;
       } else {
@@ -137,7 +137,7 @@ namespace blofeld
     }();
 
     // The expected array size from process_rate for non-EID compartments:
-    static constexpr size_t s_psv = [](){
+    static constexpr std::size_t s_psv = [](){
       if constexpr (s_have_vacc) {
         return s_psd+1;
       } else {
@@ -146,7 +146,7 @@ namespace blofeld
     }();
 
     // The expected array size from process_rate for EID compartments:
-    static constexpr size_t s_psm = [](){
+    static constexpr std::size_t s_psm = [](){
       if constexpr (s_have_mort) {
         return s_psd+1;
       } else {
