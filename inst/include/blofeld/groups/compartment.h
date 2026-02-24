@@ -17,7 +17,7 @@ namespace blofeld
 
   namespace internal
   {
-    // To allow conditional checking of carry-forward:
+    // To allow conditional checking:
     template<typename T, bool s_active>
     struct MaybeEmpty;
 
@@ -64,8 +64,27 @@ namespace blofeld
     Bridge& m_bridge;
     
     // Used for debug only:
-    internal::MaybeEmpty<bool, s_cts.debug> m_take_applied { };
-    internal::MaybeEmpty<bool, s_cts.debug> m_carry_applied { };
+    struct CheckStruct
+    {
+      Value changes;
+      bool take_applied;
+      bool carry_applied;
+    };
+    internal::MaybeEmpty<CheckStruct, s_cts.debug> m_checking = [](){
+      if constexpr (s_cts.debug) { 
+        internal::MaybeEmpty<CheckStruct, s_cts.debug> rv = {
+          .value = {
+            .changes = zero(),
+            .take_applied = true,
+            .carry_applied = true 
+          }
+        };
+        return rv;
+      } else {
+        internal::MaybeEmpty<CheckStruct, s_cts.debug> rv = { };
+        return rv;        
+      }
+    }();
 
     // Used when size == 0:
     internal::MaybeEmpty<Value, Resizeable<decltype(m_current)> || decltype(m_working){}.empty()> m_carry_through { };
@@ -111,34 +130,8 @@ namespace blofeld
         if (m_current[i] != m_working[i]) dormant = false;
       }
       
-      // return m_take_applied.value && m_carry_applied.value && dormant;
+      // return m_checking.value.take_applied && m_checking.value.carry_applied && dormant;
       return dormant;
-    }
-
-    constexpr auto checkCompartments() const noexcept(!s_cts.debug)
-      -> void
-    {
-      /*
-      if constexpr (s_ctype.compcont == CompCont::disabled) return;
-
-      if constexpr (!s_cts.debug && s_ctype.n!=0U)
-      {
-        if (m_ncomps != s_ctype.n) m_bridge.stop("Non-matching number of sub-compartments");
-      }
-      if constexpr (s_ctype.n <= 0U)
-      {
-        m_bridge.stop("Negative s_ctype.n are not allowed, and values of 0 are not yet supported");
-      }
-      */
-      
-      // Fine even if m_current is size-0 vector or array
-      for (auto const& val : m_current)
-      {
-        if (val < static_cast<Value>(0.0)) {
-          m_bridge.stop("Logic error: negative compartment value");
-        }
-      }
-      
     }
 
     constexpr auto validate()
@@ -146,10 +139,20 @@ namespace blofeld
     {
       if constexpr (s_cts.debug) {
         if (m_current.size() != m_working.size()) m_bridge.stop("Logic error: container sizes unequal within compartment");
-      }
-      
-      checkCompartments();
-      
+        
+        for (auto const& val : m_current)
+        {
+          if (val < static_cast<Value>(0.0)) {
+            m_bridge.stop("Logic error: negative compartment value");
+          }
+        }
+        
+        Value const current = std::accumulate(m_current.begin(), m_current.end(), zero());
+        Value const working = std::accumulate(m_working.begin(), m_working.end(), zero());
+        if (!identical(working, current + m_checking.value.changes, s_cts.tol)) {
+          m_bridge.stop("Unequal sum(working)={} and sum(current)={} + changes={}", working, current, m_checking.value.changes);
+        }
+      }                  
     }
 
     Compartment() = delete;
@@ -161,20 +164,12 @@ namespace blofeld
     constexpr explicit Compartment(Bridge& bridge) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
-      if constexpr (s_cts.debug) {
-        m_take_applied.value = true;
-        m_carry_applied.value = true;
-      }
       validate();
     }
     
     constexpr explicit Compartment(Bridge& bridge, Value const total) noexcept(!s_cts.debug)
       : m_bridge(bridge)
     {
-      if constexpr (s_cts.debug) {
-        m_take_applied.value = true;
-        m_carry_applied.value = true;
-      }
       distribute(total);
       validate();
     }
@@ -209,6 +204,7 @@ namespace blofeld
       } else {
         m_bridge.stop("Container is not resizeable");
       }
+      validate();
     }
         
     // Reset to 0:
@@ -218,11 +214,16 @@ namespace blofeld
       validate();
       m_current.reset();
       m_working = m_current;
+      if constexpr (s_cts.debug) {
+        m_checking.value.changes = zero();
+        m_checking.value.take_applied = true;
+        m_checking.value.carry_applied = true;
+      }
       validate();
     }
     
     // Add a total to the first subcompartment:
-    constexpr auto insert(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
+    constexpr auto insert(Value const total) noexcept(!s_cts.debug)
       -> void
     {
       // total must be >= 0
@@ -235,11 +236,16 @@ namespace blofeld
       if(setCarryThrough(total)) return;
 
       m_working[0] += total;
+      
+      if constexpr (s_cts.debug) {
+        m_checking.value.changes += total;
+      }      
+
       validate();
     }
 
     // Add or remove a fixed number evenly/randomly throughout:
-    constexpr auto distribute(Value const total, bool apply_changes = false) noexcept(!s_cts.debug)
+    constexpr auto distribute(Value const total) noexcept(!s_cts.debug)
       -> void
     {
       if constexpr (Resizeable<decltype(m_current)>) {
@@ -291,6 +297,10 @@ namespace blofeld
         static_assert(false, "Unrecognised ModelType in distribute");
       }
           
+      if constexpr (s_cts.debug) {
+        m_checking.value.changes += total;
+      }
+      
       validate();
     }
     
@@ -313,6 +323,8 @@ namespace blofeld
       
       std::copy(values.begin(), values.end(), m_current.begin());
       m_working = m_current;
+
+      validate();
     }
     
     /* // TODO: needs a const ref accessor in m_current
@@ -347,15 +359,20 @@ namespace blofeld
     constexpr auto applyChanges() noexcept(!s_cts.debug)
       -> void
     {
+      validate();
+      
       if constexpr (s_cts.debug) {
-        if (m_carry_applied.value) m_bridge.stop("applyChanges called consecutively without carryProp");
+        if (m_checking.value.carry_applied) m_bridge.stop("applyChanges called consecutively without carryProp");
       }
       
       m_current = m_working;
       if constexpr (s_cts.debug) {
-        m_take_applied.value = true;
-        m_carry_applied.value = true;
+        m_checking.value.changes = zero();
+        m_checking.value.take_applied = true;
+        m_checking.value.carry_applied = true;
       }
+      
+      validate();
     }
     
     // Required for Rcpp:
@@ -561,21 +578,22 @@ namespace blofeld
         if constexpr (s_carry) sumprop += carry_prop[0];
         if (sumprop > 1.0) m_bridge.stop("Invalid arguments to takeCarryProps:  sum of props exceeds 1");
       }
+      validate();
       // \Pre-conditions
       
       // Flag that an update is in progress:
       if constexpr (s_cts.debug) {
-        m_take_applied.value = false;
+        m_checking.value.take_applied = false;
         
         // Check carry rates are applied exactly once:
         if constexpr (s_carry) {
-          if (!m_carry_applied.value) m_bridge.stop("Runtime error: attempt to call carryProp more than once without applyChanges");
-          m_carry_applied.value = false;
+          if (!m_checking.value.carry_applied) m_bridge.stop("Runtime error: attempt to call carryProp more than once without applyChanges");
+          m_checking.value.carry_applied = false;
           /* TODO: uncomment below and update applyChanges to match
           if constexpr (Fixedsize<C> && !C{}.empty()) {
-            m_carry_applied.value = false;
+            m_checking.value.carry_applied = false;
           } else if constexpr (Resizeable<C>) {
-            if (!m_working.empty()) m_carry_applied.value = false;
+            if (!m_working.empty()) m_checking.value.carry_applied = false;
           }
           */
         }
@@ -767,8 +785,8 @@ namespace blofeld
       
       // Sanity check:
       if constexpr (s_cts.debug) {
-        // TODO: have a struct holding the previous total and the running total changes, then
-        // when running applyChanges and takeCarryProb ensure this add up
+        m_checking.value.changes -= std::accumulate(rv.carry.begin(), rv.carry.end(), std::accumulate(rv.take.begin(), rv.take.end(), zero()));
+        validate();
       }
       
       return rv;
@@ -816,6 +834,37 @@ namespace blofeld
     {
       return m_current.empty();
     }    
+    
+    
+    /* Legacy methods for supporting SEIDRVMZgroup */
+    // TODO: remove these and CompartmentInfo::is_active
+    
+    Value get_sum() const
+    {
+      return getTotal();
+    }
+    
+    template <std::size_t s_ntake>
+    auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
+    {
+      auto [take, carry] = takeCarryRates(take_rate, std::array { carry_rate });
+      struct
+      {
+        Value carry;
+        std::array<Value, s_ntake> take;
+      } rv { carry.front(), take };
+      return rv;
+    }
+    
+    void insert_value_start(Value const value)
+    {
+      insert(value);
+    }
+    
+    void apply_changes()
+    {
+      applyChanges();
+    }
     
   /*
 

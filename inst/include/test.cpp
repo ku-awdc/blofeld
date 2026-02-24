@@ -13,7 +13,7 @@
 #include "blofeld/groups/compartment.h"
 
 // Legacy for supporting Sandra:
-// #include "blofeld/groups/SEIDRVMZgroup.h"
+#include "blofeld/groups/SEIDRVMZgroup.h"
 
 
 int main ()
@@ -68,7 +68,7 @@ int main ()
   bridge.println( "An array: {}", std::array<int,0>{} );
   
   constexpr CompileTimeSettings cts;
-  blofeld::Compartment<cts,  blofeld::ModelType::Deterministic, ci> cmpt(bridge);
+  blofeld::Compartment<cts,  blofeld::ModelType::Stochastic, ci> cmpt(bridge);
   
   if (cmpt.size() > 0U) {
     cmpt.distribute(100.0);
@@ -107,6 +107,26 @@ int main ()
 
   cmpt.reset();
   bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+-0); // Note: operator- not implemented directly, as it doesn't make sense really
+  
+  constexpr blofeld::ModelType mt2 = blofeld::ModelType::Stochastic;
+  using GroupType = blofeld::SEIDRVMZgroup<cts, mt2,
+    ci, // S
+    ci, // E
+    ci, // L
+    ci, // I
+    ci, // D
+    ci, // R
+    ci, // V
+    ci, // M/C
+    ci  // Z
+  >;
+    
+  GroupType group(bridge);  
+  
+  for(int i=0; i<10000; ++i)
+  {
+    group.update();
+  }
   
   return 0;
 }

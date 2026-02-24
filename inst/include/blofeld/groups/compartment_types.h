@@ -47,7 +47,15 @@ namespace blofeld
   {
     int const n;
     ContainerType const container_type;
-    CarryType const carry_type;    
+    CarryType const carry_type;
+    
+    // Legacy for SEIDRVMZgroup only:
+    constexpr auto is_active() const
+      -> bool
+    {
+      // Note: ignore array/vector with size 0
+      return container_type != ContainerType::Disabled;
+    }
   };
   
   // Helper function (with default arguments - note that we use int not size_t for n)
