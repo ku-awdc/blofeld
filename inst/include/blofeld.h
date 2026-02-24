@@ -13,6 +13,6 @@
 #include "blofeld/utilities/bridge_rcpp.h"
 #include "blofeld/utilities/container_formatter.h"
 
-#include "blofeld/Rcpp_wrappers/compartment_wrapper.h"
-#include "blofeld/Rcpp_wrappers/group_wrapper.h"
-#include "blofeld/Rcpp_wrappers/rcpp_module_macros.h"
+// #include "blofeld/rcpp_wrappers/compartment_wrapper.h"
+#include "blofeld/rcpp_wrappers/group_wrapper.h"
+#include "blofeld/rcpp_wrappers/rcpp_module_macros.h"

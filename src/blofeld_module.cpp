@@ -19,28 +19,29 @@ constexpr struct
   using Bridge = blofeld::BridgeRcpp;
 } cts;
 
-using Comp_d01sa = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::deterministic, blofeld::component(1)>>;
-using Comp_d10sa = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::deterministic, blofeld::component(10, blofeld::CompCont::array, blofeld::CompCarry::sequential)>>;
+//using Comp_d01sa = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::Deterministic, blofeld::component(1)>>;
+//using Comp_d10sa = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofeld::ModelType::Deterministic, blofeld::component(10, blofeld::CompCont::array, blofeld::CompCarry::sequential)>>;
 
-using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::deterministic,
-  blofeld::component(1), // S
-  blofeld::component(20), // E
-  blofeld::component(0), // L
-  blofeld::component(3), // I
-  blofeld::component(0), // D
-  blofeld::component(1), // R
-  blofeld::component(0), // V
-  blofeld::component(1), // M
-  blofeld::component(1)  // Z
+using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::Deterministic,
+  blofeld::compartment_info(1), // S
+  blofeld::compartment_info(20), // E
+  blofeld::compartment_info(0), // L
+  blofeld::compartment_info(3), // I
+  blofeld::compartment_info(0), // D
+  blofeld::compartment_info(1), // R
+  blofeld::compartment_info(0), // V
+  blofeld::compartment_info(1), // M
+  blofeld::compartment_info(1)  // Z
 >;
 using Group = blofeld::GroupWrapper<cts, GroupType>;
 
-using Comp = Comp_d10sa;
+//using Comp = Comp_d10sa;
 
 RCPP_MODULE(blofeld_module){
 
 	using namespace Rcpp;
 
+  /*
   class_<Comp>("Comp")
     .constructor()
     .property("sum", &Comp::get_sum, &Comp::set_sum)
@@ -48,7 +49,7 @@ RCPP_MODULE(blofeld_module){
     .method("process", &Comp::process)
     .method("update", &Comp::update)
     .method("insert", &Comp::insert)
-  ;
+  ;*/
   
   class_<Group>("Group")
     .constructor()

@@ -342,7 +342,7 @@ namespace blofeld
       if constexpr (Resizeable<ReturnContainer>) {
         rv.resize(m_current.size());
       } else {
-        static_assert(ssize(m_current)==ssize(rv), "Logic error in getValues");        
+        static_assert(decltype(m_current){}.size()==ReturnContainer{}.size(), "Logic error in getValues");        
       }
       std::copy(m_current.begin(), m_current.end(), rv.begin());
       return rv;      
@@ -843,6 +843,17 @@ namespace blofeld
     {
       return getTotal();
     }
+    void set_sum(Value const total, bool const distr = true)
+    {
+      reset();
+      if (distr) {
+        distribute(total);
+      } else {
+        insert(total);
+      }
+      m_current = m_working;
+      validate();
+    }
     
     template <std::size_t s_ntake>
     auto process_rate(double const carry_rate, std::array<double, s_ntake> const& take_rate)
@@ -864,6 +875,15 @@ namespace blofeld
     void apply_changes()
     {
       applyChanges();
+    }
+    
+    constexpr bool is_active()
+    {
+      if constexpr (Fixedsize<decltype(m_working)> && decltype(m_working){}.size()==0U) {
+        return false;
+      } else {
+        return true;
+      }
     }
     
   /*
