@@ -2,7 +2,7 @@
 #include <Rcpp.h>
 #define R_NO_REMAP
 
-#include "blofeld.h"
+#include "../inst/legacy/blofeld.h"
 
 int test()
 {
@@ -35,7 +35,7 @@ using Comp10 = blofeld::CompartmentWrapper<cts, blofeld::Compartment<cts, blofel
 
 using Comp = Comp1;
 
-RCPP_MODULE(blofeld_module){
+RCPP_MODULE(blofeld_legacy_module){
 
 	using namespace Rcpp;
 

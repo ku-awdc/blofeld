@@ -12,10 +12,10 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 
-RcppExport SEXP _rcpp_module_boot_blofeld_module();
+RcppExport SEXP _rcpp_module_boot_blofeld_legacy_module();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_rcpp_module_boot_blofeld_module", (DL_FUNC) &_rcpp_module_boot_blofeld_module, 0},
+    {"_rcpp_module_boot_blofeld_legacy_module", (DL_FUNC) &_rcpp_module_boot_blofeld_legacy_module, 0},
     {NULL, NULL, 0}
 };
 
