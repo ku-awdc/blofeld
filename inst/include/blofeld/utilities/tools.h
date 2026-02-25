@@ -1,10 +1,25 @@
 #ifndef BLOFELD_IDENTICAL_H_
 #define BLOFELD_IDENTICAL_H_
 
+#include <stdexcept>
 #include <type_traits>
 
 namespace blofeld
 {
+  // Convenience for making for loops, inspired by GSL:
+  using index = std::ptrdiff_t;
+  using std::ssize;
+
+  // Similar to the GSL but simplified:
+  template <class T, class U>
+  constexpr auto symmetric_cast(U u)
+    -> T
+  {
+      const T t = static_cast<T>(u);
+      if (static_cast<U>(t) != u) throw std::invalid_argument("Failure of symmetry in symmetric_cast");
+      return t;
+  }  
+  
   // Templated function for testing equality:
   template <typename T, typename U>
   constexpr auto identical(T const& a, U const& b, [[maybe_unused]] double const tol = 1e-6)

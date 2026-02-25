@@ -13,7 +13,9 @@
 #include "blofeld/groups/compartment.h"
 
 // Legacy for supporting Sandra:
-#include "blofeld/groups/SEIDRVMZgroup.h"
+// #include "blofeld/groups/SEIDRVMZgroup.h"
+
+#include "blofeld/populations/matrix_population.h"
 
 
 int main ()
@@ -108,6 +110,7 @@ int main ()
   cmpt.reset();
   bridge.println("Cmpt: {}; sum = {}", cmpt, cmpt+-0); // Note: operator- not implemented directly, as it doesn't make sense really
   
+  /*
   constexpr blofeld::ModelType mt2 = blofeld::ModelType::Stochastic;
   using GroupType = blofeld::SEIDRVMZgroup<cts, mt2,
     ci, // S
@@ -126,7 +129,20 @@ int main ()
   for(int i=0; i<10000; ++i)
   {
     group.update();
-  }
+  } */
+  
+  struct Test
+  {
+    double val = 0.0;
+  };
+  std::vector<Test> gps(2);
+  
+  blofeld::MatrixPopulation<cts, Test> pop2(gps);
+
+  Test gp = {};
+  blofeld::MatrixPopulation<cts, Test> pop(gp);
+  
+  bridge.println("{}, {}", gps[0].val, gp.val);
   
   return 0;
 }
