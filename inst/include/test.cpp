@@ -1,5 +1,5 @@
-// clang++ -std=c++20 -Wall -pedantic -o test test.cpp
-// gcc-15 -std=c++20 -stdlib=libstdc++ -Wall -pedantic /opt/homebrew/lib/gcc/current/libstdc++.a -o test test.cpp
+// clang++ -std=c++20 -Wall -Wextra -pedantic -o test test.cpp
+// gcc-15 -std=c++20 -stdlib=libstdc++ -Wall -Wextra -pedantic /opt/homebrew/lib/gcc/current/libstdc++.a -o test test.cpp
 
 // TODO: sort out include order
 

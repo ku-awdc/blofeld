@@ -8,7 +8,7 @@
 
 namespace blofeld
 {
-  
+
   /*class BasicGroup
   {
   public:
@@ -24,11 +24,50 @@ namespace blofeld
   };
   */
 
-  template <auto s_cts, class Tgroup>
+  template <class Tgroup>
+  class PtrWrap
+  {
+  public:
+
+    bool owner = true;
+    // Note: for now must be shared (not unique) ptr as copies need to be made
+    std::shared_ptr<Tgroup> shared;
+    Tgroup* raw;
+
+    Tgroup& operator* () const
+    {
+      if (owner) {
+        return *shared.get();
+      } else {
+        return *raw;
+      }
+    }
+
+    Tgroup* operator-> () const
+    {
+      if (owner) {
+        return shared.get();
+      } else {
+        return raw;
+      }
+    }
+
+    Tgroup* getPtr() const
+    {
+      if (owner) {
+        return shared.get();
+      } else {
+        return raw;
+      }
+    }
+
+  };
+
+  template <class Tgroup>
   class GroupWrapper //: public BasicGroup
   {
   private:
-    using Bridge = decltype(s_cts)::Bridge;
+    using Bridge = Tgroup::Bridge;
     Bridge m_bridge;
 
     using Tpars = Tgroup::Tpars;
@@ -37,13 +76,40 @@ namespace blofeld
     using List = Rcpp::List;
     using DataFrame = Rcpp::DataFrame;
 
-    // For now this has ownership - modify in future to e.g. shared pointer?
-    std::unique_ptr<Tgroup> m_group;
+    PtrWrap<Tgroup> m_group;
 
   public:
     GroupWrapper()
     {
-      m_group = std::make_unique<Tgroup>(m_bridge);
+      m_bridge.println("Default c'tor");
+      m_group.shared = std::make_shared<Tgroup>(m_bridge);
+      m_group.owner = true;
+    }
+
+    GroupWrapper(Tgroup* ptr)
+    {
+      m_bridge.println("Ptr c'tor");
+      // For now we assume that ptr will be valid while this class is valid:
+      m_group.raw = ptr;
+      m_group.owner = false;
+    }
+    
+    void changePtr(Tgroup* ptr)
+    {
+      m_group.raw = ptr;
+      m_group.owner = false;
+    }
+
+    // Copy c'tor:
+    /*
+    GroupWrapper(GroupWrapper const& obj) {
+      m_bridge.println("Copy c'tor");
+
+    }*/
+
+    Tgroup* getPtr()
+    {
+      return m_group.getPtr();
     }
 
     /*
@@ -64,12 +130,12 @@ namespace blofeld
       DataFrame rv = get_state();
       return rv;
     }
-    
+
     void set_external_infection(double const extinf)
     {
       m_group -> set_external_infection(extinf);
     }
-    
+
     [[nodiscard]] auto get_external_infection() const noexcept
       -> double
     {
@@ -111,7 +177,7 @@ namespace blofeld
       SEIDRVMZpars crpars = m_group -> get_parameters();
 
       using namespace Rcpp;
-      
+
       // List should be named:
       StringVector names = nwpars.names();
       for(int i=0; i<nwpars.size(); ++i)
@@ -157,7 +223,7 @@ namespace blofeld
 
       m_group -> set_parameters(crpars);
     }
-    
+
     [[nodiscard]] auto get_full_state() const
       -> List
     {
@@ -191,7 +257,7 @@ namespace blofeld
         _["Time"] = tm,
         _["S"] = lfun(state.S)
       );
-        
+
       if constexpr (state.E.is_active()) rv.push_back(lfun(state.E), "E");
       if constexpr (state.L.is_active()) rv.push_back(lfun(state.L), "L");
       if constexpr (state.I.is_active()) rv.push_back(lfun(state.I), "I");
@@ -199,7 +265,7 @@ namespace blofeld
       if constexpr (state.R.is_active()) rv.push_back(lfun(state.R), "R");
       if constexpr (state.V.is_active()) rv.push_back(lfun(state.V), "V");
       if constexpr (state.M.is_active()) rv.push_back(lfun(state.M), "M");
-      
+
       return rv;
     }
 
@@ -236,7 +302,7 @@ namespace blofeld
         _["Time"] = tm,
         _["S"] = lfun(state.S)
       );
-        
+
       if constexpr (state.E.is_active()) rv.push_back(lfun(state.E), "E");
       if constexpr (state.L.is_active()) rv.push_back(lfun(state.L), "L");
       if constexpr (state.I.is_active()) rv.push_back(lfun(state.I), "I");
@@ -251,7 +317,7 @@ namespace blofeld
     void set_state(List state, bool const distribute)
     {
       using namespace Rcpp;
-      
+
       // List should be named:
       StringVector names = state.names();
       for(int i=0; i<state.size(); ++i)

@@ -1,19 +1,19 @@
 library("tidyverse")
 library("Rcpp")
 
-sourceCpp("notebooks/matrix_population/test.cpp")
+rm(list=ls()); gc(); sourceCpp("notebooks/matrix_population/test.cpp")
 
-tt <- new(Test)
-tt
-
-tts <- list(tt, tt)
-names(tts) <- c("A","B")
-
-mg <- new(MPop, tts)
+tt <- new(SIRGroup)
+tt$get_state()
+mg <- new(MPop, list(tt, tt))
 mg
 tt
-
+tt$get_state()
 t2 <- mg$getGroup(0)
+t2$get_state()
+
+## Note: t2 MUST be deleted before mg
+
 t2
 t2$add(0.25)
 t2

@@ -16,28 +16,53 @@ namespace blofeld
   template<auto s_cts, class Group>
   class MatrixPopulation
   {
+  public:
+    using Bridge = decltype(s_cts)::Bridge;
+    
   private:
+    Bridge& m_bridge;
+    
     std::vector<Group> m_groups {};
+    
+    MatrixPopulation() = delete;
 
   public:
     
     using GroupType = Group;
     
-    MatrixPopulation()
-    {
-      
-    }
-    
     // For testing:
-    explicit MatrixPopulation(Group& group)
+    explicit MatrixPopulation(Bridge& bridge)
+      : m_bridge(bridge)
+    {
+    }
+
+    // For testing:
+    explicit MatrixPopulation(Bridge& bridge, Group& group)
+      : m_bridge(bridge)
     {
       m_groups.push_back(group);
-      m_groups[0].val +=1.0;
     }
     
-    explicit MatrixPopulation(std::vector<Group>& groups)
+    // Transfer ownership:
+    explicit MatrixPopulation(Bridge& bridge, std::vector<Group*> const& groups)
+      : m_bridge(bridge)
     {
-      m_groups = groups;
+      m_bridge.println("Transferring {} groups", groups.size());
+      for (index i=0; i<ssize(groups); ++i) {
+        Group gp = *(groups[i]);
+        m_groups.push_back(gp);
+      }
+    }
+    
+    // Return pointer to a specific group:
+    Group* getGroup(index num)
+    {
+      // TODO:
+      if (num < 0 || num >= ssize(m_groups)) {
+        m_bridge.stop("Index {} out of range", num);
+      }
+      
+      return &(m_groups[num]);
     }
     
     /*
@@ -67,14 +92,9 @@ namespace blofeld
       return &m_groups;
     }
     
-    void test()
-    {
-      m_groups[0].val +=5.5;
-    }
-    
     void show()
     {
-      Rcpp::Rcout << m_groups[0].val << "\n";
+      m_bridge.println("MatrixPopulation of {}", m_groups.size());
     }
     
   };

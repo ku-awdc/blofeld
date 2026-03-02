@@ -10,25 +10,57 @@
 
 namespace blofeld
 {
-  
-  template <auto s_cts, class MPop>
+
+  template <class MPop>
   class MatrixPopulationWrapper
   {
   private:
+    using Bridge = MPop::Bridge;
     using Group = MPop::GroupType;
-    
-    using Bridge = decltype(s_cts)::Bridge;
+    using GpWp = GroupWrapper<Group>;
+
     Bridge m_bridge;
 
     // For now this has ownership - modify in future to e.g. shared pointer?
-    // std::unique_ptr<MPop> m_pop;
-    MPop m_pop;
+    std::unique_ptr<MPop> m_pop;
 
   public:
-    explicit MatrixPopulationWrapper(Rcpp::List groups)
+    explicit MatrixPopulationWrapper(Rcpp::List wrapped_groups)
     {
-      // m_pop = std::make_unique<MPop>(); //(m_bridge);
-      
+
+      // Transfer ownership from inside the group wrappers:
+      std::vector<Group*> vgps;
+      for (index i=0; i<ssize(wrapped_groups); ++i)
+      {
+        GpWp* gw = Rcpp::as<GpWp*>(wrapped_groups[i]);;
+        Group* gp = gw->getPtr();
+        vgps.push_back(gp);
+      }
+
+      m_pop = std::make_unique<MPop>(m_bridge, vgps);
+
+      int const num = 0;
+      Group* gp = m_pop->getGroup(num);
+
+      gp->update(10);
+
+      GpWp* gw = Rcpp::as<GpWp*>(wrapped_groups[0]);;
+      gw->changePtr(gp);
+
+      //Group* gp = groups[0].getPtr();
+
+      // Transfer ownership from inside the group wrappers:
+      /*
+      std::vector<Group*> vgps;
+      for (index i=0; i<ssize(groups); ++i)
+      {
+        Group* gp = Rcpp::as<Group*>(groups[i]);
+        vgps.push_back(gp);
+      }
+
+      m_pop = std::make_unique<MPop>(m_bridge, vgps);
+      */
+
       /*
       std::vector<Group*> vgps;
       for (index i=0; i<ssize(groups); ++i)
@@ -39,26 +71,27 @@ namespace blofeld
         vgps.push_back(gp);
       }
       m_pop->initialise(vgps);
-      */
-      
+
       for (index i=0; i<ssize(groups); ++i)
       {
         Group gp = Rcpp::as<Group>(groups[i]);
         m_pop.addGroup(gp);
       }
-      
+
+      */
     }
-    
-    Group* getGroup(int num)
+
+    GpWp getGroup(int num)
     {
-      std::vector<Group>* vgps = m_pop.getGroups();
-      if (num < 0 || num >= (*vgps).size()) Rcpp::stop("Invalid index");
+      Group* gp = m_pop->getGroup(num);
+      GpWp gw(gp);
       
-      // Note: returning this means it can be gc() from R, and then death ensues
-      Group* gp = &((*vgps)[num]);
-      return gp;
+      return gw;
     }
-    
+
+    /*
+
+
     Rcpp::List copyGroups()
     {
       std::vector<Group>* vgps = m_pop.getGroups();
@@ -69,15 +102,17 @@ namespace blofeld
       }
       return rv;
     }
-    
+
     void test()
     {
-      m_pop.test();
+      m_pop->test();
     }
-    
+
+    */
+
     void show()
     {
-      m_pop.show();
+      //m_pop->show();
     }
 
   };
