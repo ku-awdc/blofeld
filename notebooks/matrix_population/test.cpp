@@ -8,9 +8,7 @@
 #include "../../inst/legacy/blofeld/utilities/BridgeRcpp.h"
 #include "../../inst/legacy/blofeld/Rcpp_wrappers/rcpp_module_macros.h"
 #include "../../inst/legacy/blofeld/Rcpp_wrappers/GroupWrapper.h"
-
-// New code:
-#include "../../inst/include/blofeld/rcpp_wrappers/matrix_population_wrapper.h"
+#include "../../inst/legacy/blofeld/Rcpp_wrappers/matrix_population_wrapper.h"
 
 
 constexpr struct
