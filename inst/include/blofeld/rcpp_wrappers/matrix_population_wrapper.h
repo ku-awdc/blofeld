@@ -39,54 +39,70 @@ namespace blofeld
 
       m_pop = std::make_unique<MPop>(m_bridge, vgps);
 
-      int const num = 0;
-      Group* gp = m_pop->getGroup(num);
-
-      gp->update(10);
-
-      GpWp* gw = Rcpp::as<GpWp*>(wrapped_groups[0]);;
-      gw->changePtr(gp);
-
-      //Group* gp = groups[0].getPtr();
-
-      // Transfer ownership from inside the group wrappers:
-      /*
-      std::vector<Group*> vgps;
-      for (index i=0; i<ssize(groups); ++i)
+      for (index i=0; i<ssize(wrapped_groups); ++i)
       {
-        Group* gp = Rcpp::as<Group*>(groups[i]);
-        vgps.push_back(gp);
+        Group* gp = m_pop->getGroup(i);
+        GpWp* gw = Rcpp::as<GpWp*>(wrapped_groups[i]);;
+        gw->changePtr(gp);
       }
 
-      m_pop = std::make_unique<MPop>(m_bridge, vgps);
-      */
+      m_bridge.println("WARNING: Ownership of {} groups has been transferred to the matrix population and the R objects representing these groups now point inside the matrix population. Do NOT use these group objects after the metapopulation has been gc'd otherwise very bad things will happen.", ssize(wrapped_groups));
 
-      /*
-      std::vector<Group*> vgps;
-      for (index i=0; i<ssize(groups); ++i)
-      {
-        Group* gp = Rcpp::as<Group*>(groups[i]);
-        Rcpp::Rcout << gp->val << "\n";
-        //m_pop->addGroup(gp);
-        vgps.push_back(gp);
-      }
-      m_pop->initialise(vgps);
-
-      for (index i=0; i<ssize(groups); ++i)
-      {
-        Group gp = Rcpp::as<Group>(groups[i]);
-        m_pop.addGroup(gp);
-      }
-
-      */
     }
 
     GpWp getGroup(int num)
     {
       Group* gp = m_pop->getGroup(num);
       GpWp gw(gp);
-      
+
       return gw;
+    }
+
+    Rcpp::DataFrame update(int const steps)
+    {
+      m_pop->update(steps);
+      return getState();
+    }
+    
+    Rcpp::DataFrame getState() const
+    {
+      auto const state = m_pop->getState();
+      
+      using namespace Rcpp;
+      
+      DataFrame rv = DataFrame::create(
+        _["TimePoint"] = state.Time,
+        _["S"] = state.S,
+        _["E"] = state.E,
+        _["L"] = state.L,
+        _["I"] = state.I,
+        _["D"] = state.D,
+        _["R"] = state.R,
+        _["V"] = state.V,
+        _["M"] = state.M
+      );
+
+      return rv;      
+    }
+
+    void setBetaMatrix(Rcpp::NumericMatrix beta)
+    {
+      if (beta.nrow() != beta.ncol()) {
+        m_bridge.stop("Matrix is not symmetric");
+      }
+      index const dd = symmetric_cast<index>(beta.nrow());
+
+      std::vector<double> vec;
+      for (index i = 0; i < dd; ++i) {
+        for (index j = 0; j < dd; ++j) {
+          double const val = beta(i,j);
+          if ( val < 0.0 ) {
+            m_bridge.stop("Invalid negative entry in beta matrix");
+          }
+          vec.push_back(val);
+        }
+      }
+      m_pop->setBetaMatrix(vec);
     }
 
     /*
@@ -112,7 +128,7 @@ namespace blofeld
 
     void show()
     {
-      //m_pop->show();
+      m_pop->show();
     }
 
   };

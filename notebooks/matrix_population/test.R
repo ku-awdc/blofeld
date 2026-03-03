@@ -3,14 +3,37 @@ library("Rcpp")
 
 rm(list=ls()); gc(); sourceCpp("notebooks/matrix_population/test.cpp")
 
-tt <- new(SIRGroup)
-tt$get_state()
-mg <- new(MPop, list(tt, tt))
+tts <- lapply(seq_len(2000), \(x){
+  gp <- new(SIRGroup)
+  gp$set_state(list(S = 2), distribute=TRUE)
+  gp
+})
+tts[[1]]$set_state(list(I = 1, S = 1), distribute=TRUE)
+mg <- new(MPop, tts)
+mg$getState()
+mg$setBetaMatrix(matrix(0.01, nrow=length(tts), ncol=length(tts)))
+
+system.time(mg$update(24*60))
+
+mg$getState()
+lapply(tts, \(x) x$get_state()) |> bind_rows()
+mg$update(1)
+tts[[1]]$get_full_state()
+tts[[1]]$set_state(list(I = c(1,1,1)))
+
+
+
 mg
 tt
 tt$get_state()
 t2 <- mg$getGroup(0)
+t2$update(10)
 t2$get_state()
+
+mg$getGroup(0)$update(7)
+
+mg$getGroup(0)$get_state()
+mg$getGroup(1)$get_state()
 
 ## Note: t2 MUST be deleted before mg
 

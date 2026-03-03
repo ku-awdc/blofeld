@@ -81,14 +81,12 @@ namespace blofeld
   public:
     GroupWrapper()
     {
-      m_bridge.println("Default c'tor");
       m_group.shared = std::make_shared<Tgroup>(m_bridge);
       m_group.owner = true;
     }
 
     GroupWrapper(Tgroup* ptr)
     {
-      m_bridge.println("Ptr c'tor");
       // For now we assume that ptr will be valid while this class is valid:
       m_group.raw = ptr;
       m_group.owner = false;

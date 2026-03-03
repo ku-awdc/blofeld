@@ -52,7 +52,9 @@ RCPP_MODULE(blofeld_test){
     //.method("test", &MPop::test)
     .method("show", &MPop::show)
     .method("getGroup", &MPop::getGroup)
-    //.method("copyGroups", &MPop::copyGroups)
+    .method("update", &MPop::update)
+    .method("getState", &MPop::getState)
+    .method("setBetaMatrix", &MPop::setBetaMatrix)
   ;
 }
 
