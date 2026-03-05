@@ -58,7 +58,8 @@ namespace blofeld
   template <auto s_cts, ModelType s_mtype, CompType s_ctp_S, CompType s_ctp_E, CompType s_ctp_L, CompType s_ctp_I, CompType s_ctp_D, CompType s_ctp_R, CompType s_ctp_V, CompType s_ctp_M, CompType s_ctp_Z>
   class SEIDRVMZgroup : public Group<s_cts>
   {
-  private:
+  public:
+    using Bridge = decltype(s_cts)::Bridge;
 
     // TODO: make this a static consteval member of ModelType for re-use here and Compartment?
     using t_Value = std::conditional_t<
@@ -70,9 +71,10 @@ namespace blofeld
         void
       >
     >;
-
-    using Bridge = decltype(s_cts)::Bridge;
+    
+  private:
     Bridge& m_bridge;
+
 
     double m_time = 0.0;
     Compartment<s_cts, s_mtype, s_ctp_S> m_S;
@@ -425,6 +427,17 @@ namespace blofeld
       }
 
     }
+    
+    [[nodiscard]] auto getInfective() const
+      -> t_Value
+    {
+      t_Value inf = m_I.get_sum();
+      if constexpr (s_ctp_D.is_active()) {
+        inf += m_D.get_sum();
+      }
+      return inf;
+    }
+    
 
 };
 

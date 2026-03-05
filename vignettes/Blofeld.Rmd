@@ -30,6 +30,7 @@ To run the code provided in this vignette you need to load the blofeld package:
 
 ```{r setup}
 library("blofeld")
+library("tidyverse")
 ```
 
 

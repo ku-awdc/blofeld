@@ -1,5 +1,5 @@
-#ifndef BLOFELD_COMPARTMENT_H
-#define BLOFELD_COMPARTMENT_H
+#ifndef BLOFELD_IBM_SIR_H_
+#define BLOFELD_IBM_SIR_H_
 
 #include <array>
 #include <numeric>
@@ -15,29 +15,8 @@
 namespace blofeld
 {
 
-  namespace internal
-  {
-    // To allow conditional checking:
-    template<typename T, bool s_active>
-    struct MaybeEmpty;
-
-    template<typename T>
-    struct MaybeEmpty<T, false>
-    {
-      
-    };
-
-    template<typename T>
-    struct MaybeEmpty<T, true>
-    {
-      T value {};
-    };
-    
-  } // namespace internal
-
-  // Note: methods are marked constexpr but using that requires a constexpr bridge!
-  template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
-  class Compartment
+  template <auto s_cts, typename Individ>
+  class IbmSir
   {
   private:
     using Value = std::conditional_t<
@@ -1072,4 +1051,4 @@ namespace blofeld
 
 } //blofeld
 
-#endif // BLOFELD_COMPARTMENT_H
+#endif // BLOFELD_IBM_SIR_H_

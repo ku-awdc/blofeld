@@ -58,7 +58,11 @@ namespace blofeld
   template <auto s_cts, ModelType s_mtype, CompartmentInfo s_ctp_S, CompartmentInfo s_ctp_E, CompartmentInfo s_ctp_L, CompartmentInfo s_ctp_I, CompartmentInfo s_ctp_D, CompartmentInfo s_ctp_R, CompartmentInfo s_ctp_V, CompartmentInfo s_ctp_M, CompartmentInfo s_ctp_Z>
   class SEIDRVMZgroup : public Group<s_cts>
   {
+  public:
+    using Bridge = decltype(s_cts)::Bridge;
+    
   private:
+    Bridge& m_bridge;
 
     // TODO: make this a static consteval member of ModelType for re-use here and Compartment?
     using t_Value = std::conditional_t<
@@ -70,9 +74,6 @@ namespace blofeld
         void
       >
     >;
-
-    using Bridge = decltype(s_cts)::Bridge;
-    Bridge& m_bridge;
 
     double m_time = 0.0;
     Compartment<s_cts, s_mtype, s_ctp_S> m_S;
@@ -176,7 +177,7 @@ namespace blofeld
     using Tpars = SEIDRVMZpars;
     using Tstate = SEIDRVMZstate<s_cts, s_mtype, s_ctp_S, s_ctp_E, s_ctp_L, s_ctp_I, s_ctp_D, s_ctp_R, s_ctp_V, s_ctp_M, s_ctp_Z>;
 
-    SEIDRVMZgroup(Bridge& bridge)
+    explicit SEIDRVMZgroup(Bridge& bridge)
       : m_bridge(bridge), m_S(bridge), m_E(bridge), m_L(bridge), m_I(bridge),
         m_D(bridge), m_R(bridge), m_V(bridge), m_M(bridge), m_Z(bridge)
     {
