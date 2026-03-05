@@ -1,3 +1,14 @@
+/*
+ * Instructions:  change numE, numI, and/or numR below as needed
+ * Note: this compiles both deterministic and stochastic models
+ * If you need more speed set debug=false
+ */
+constexpr int numE = 0;
+constexpr int numI = 3;
+constexpr int numR = 1;
+constexpr bool debug = true;
+
+
 // [[Rcpp::plugins(cpp20)]]
 // [[Rcpp::depends(blofeld)]]
 
@@ -10,49 +21,77 @@
 #include "../../inst/legacy/blofeld/Rcpp_wrappers/GroupWrapper.h"
 #include "../../inst/legacy/blofeld/Rcpp_wrappers/matrix_population_wrapper.h"
 
-
 constexpr struct
 {
-  bool const debug = true;
+  bool const debug = false;
   double const tol = 0.00001;
   using Bridge = blofeld::BridgeRcpp;
-} cts;
+} cts {
+  .debug = debug
+};
 
-using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::deterministic,
+using SG = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::stochastic,
   blofeld::component(1), // S
-  blofeld::component(20), // E
+  blofeld::component(numE), // E
   blofeld::component(0), // L
-  blofeld::component(3), // I
+  blofeld::component(numI), // I
   blofeld::component(0), // D
-  blofeld::component(1), // R
+  blofeld::component(numR), // R
   blofeld::component(0), // V
   blofeld::component(1), // M
   blofeld::component(1)  // Z
   >;
 
-using SIRGroup = blofeld::GroupWrapper<GroupType>;
+using DG = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::deterministic,
+  blofeld::component(1), // S
+  blofeld::component(numE), // E
+  blofeld::component(0), // L
+  blofeld::component(numI), // I
+  blofeld::component(0), // D
+  blofeld::component(numR), // R
+  blofeld::component(0), // V
+  blofeld::component(1), // M
+  blofeld::component(1)  // Z
+  >;
 
-RCPP_EXPOSED_AS(SIRGroup)
-RCPP_EXPOSED_WRAP(SIRGroup)
+using StochasticGroup = blofeld::GroupWrapper<SG>;
+RCPP_EXPOSED_AS(StochasticGroup)
+RCPP_EXPOSED_WRAP(StochasticGroup)
 
-using MPop = blofeld::MatrixPopulationWrapper<blofeld::MatrixPopulation<cts, GroupType>>;
-RCPP_EXPOSED_AS(MPop)
-RCPP_EXPOSED_WRAP(MPop)
+using DeterministicGroup = blofeld::GroupWrapper<DG>;
+RCPP_EXPOSED_AS(DeterministicGroup)
+RCPP_EXPOSED_WRAP(DeterministicGroup)
+
+using StochasticPop = blofeld::MatrixPopulationWrapper<blofeld::MatrixPopulation<cts, SG>>;
+RCPP_EXPOSED_AS(StochasticPop)
+RCPP_EXPOSED_WRAP(StochasticPop)
+
+using DeterministicPop = blofeld::MatrixPopulationWrapper<blofeld::MatrixPopulation<cts, DG>>;
+RCPP_EXPOSED_AS(DeterministicPop)
+RCPP_EXPOSED_WRAP(DeterministicPop)
 
 RCPP_MODULE(blofeld_test){
   using namespace Rcpp;
 
-  GROUP_CLASS(SIRGroup)
+  GROUP_CLASS(StochasticGroup)
+  GROUP_CLASS(DeterministicGroup)
 
-  class_<MPop>("MPop")
-    //.constructor<Test&>("C'tor")
+  class_<StochasticPop>("StochasticPop")
     .constructor<Rcpp::List>("C'tor")
-    //.method("test", &MPop::test)
-    .method("show", &MPop::show)
-    .method("getGroup", &MPop::getGroup)
-    .method("update", &MPop::update)
-    .method("getState", &MPop::getState)
-    .method("setBetaMatrix", &MPop::setBetaMatrix)
+    .method("show", &StochasticPop::show)
+    //.method("getGroup", &StochasticPop::getGroup)
+    .method("update", &StochasticPop::update)
+    .method("getState", &StochasticPop::getState)
+    .method("setBetaMatrix", &StochasticPop::setBetaMatrix)
+  ;
+
+  class_<DeterministicPop>("DeterministicPop")
+    .constructor<Rcpp::List>("C'tor")
+    .method("show", &DeterministicPop::show)
+  //.method("getGroup", &DeterministicPop::getGroup)
+    .method("update", &DeterministicPop::update)
+    .method("getState", &DeterministicPop::getState)
+    .method("setBetaMatrix", &DeterministicPop::setBetaMatrix)
   ;
 }
 
