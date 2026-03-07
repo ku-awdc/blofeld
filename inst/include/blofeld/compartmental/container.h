@@ -18,32 +18,6 @@ namespace blofeld
   // TODO: implement copy/move constructors assuming/checking lengths are equal and copying elements using std::copy
   
   // TODO: allow std::array<..., 0>
-  // TODO: make this more robust:
-  /*
-    template<template<typename...> class Ref, typename... Args>
-    struct is_specialization<Ref<Args...>, Ref>: std::true_type {};
-  */
-  
-  template<typename T>
-  concept Container = requires(T x)
-  {
-    { x.size() } -> std::same_as<std::size_t>;
-  };
-  
-  template<typename T>
-  concept Resizeable = Container<T> && requires(T x)
-  {
-    { x.resize(0) } -> std::same_as<void>;
-  };
-
-  template<typename T>
-  concept Maxsized = Container<T> && (!Resizeable<T> || requires(T x)
-  {
-    { x.maxSize() } -> std::convertible_to<int>;
-  });
-
-  template<typename T>
-  concept Fixedsize = Container<T> && !Resizeable<T>;
   
   
   namespace internal {

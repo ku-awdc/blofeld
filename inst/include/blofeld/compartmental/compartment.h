@@ -39,6 +39,8 @@ namespace blofeld
   template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
   class Compartment
   {
+  friend class CompartmentWrapper;
+    
   private:
     using Value = std::conditional_t<
       s_mtype == ModelType::Deterministic,

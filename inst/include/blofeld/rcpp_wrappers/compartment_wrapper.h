@@ -1,31 +1,20 @@
 #ifndef BLOFELD_COMPARTMENT_WRAPPER_H
 #define BLOFELD_COMPARTMENT_WRAPPER_H
 
-// We MUST have Rcpp access here, as this is a wrapper to Rcpp
 #include <Rcpp.h>
 
 #include <type_traits>
 
 namespace blofeld
 {
-  
-  /*class BasicGroup
-  {
-  public:
-    BasicGroup() { }
-    Rcpp::DataFrame update() { return get_state(); }
-    Rcpp::List get_parameters() const { return get_full_state(); }
-    void set_parameters(Rcpp::List pars) { }
-    Rcpp::List get_full_state() const { Rcpp::List rv; return rv; }
-    Rcpp::DataFrame get_state() const { Rcpp::DataFrame rv; return rv; }
-    void set_state(Rcpp::List state) { }
-    double get_external_infection() const { return 0.0; }
-    void set_external_infection(double const) { }
-  };
-  */
 
-  template <auto s_cts, class Tcomp>
-  class CompartmentWrapper //: public BasicGroup
+  /*
+  CompartmentWrapper is a simpler owner i.e. Compartments are 
+  not transferrable to/between groups
+  */
+  
+  template <class CompType>
+  class CompartmentWrapper
   {
   private:
     using Bridge = decltype(s_cts)::Bridge;

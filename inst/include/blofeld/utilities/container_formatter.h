@@ -4,8 +4,9 @@
 #include <format>
 #include <array>
 
-#include "../groups/container.h"
-#include "../groups/compartment.h"
+#include "../utilities/tools.h"
+#include "../compartmental/container.h"
+#include "../compartmental/compartment.h"
 
 namespace blofeld
 {

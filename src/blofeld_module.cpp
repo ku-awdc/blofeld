@@ -11,6 +11,7 @@
 
 #include "blofeld.h"
 
+/*
 constexpr struct
 {
   bool const debug = true;
@@ -36,6 +37,7 @@ using GroupType = blofeld::SEIDRVMZgroup<cts, blofeld::ModelType::Deterministic,
 using Group = blofeld::GroupWrapper<cts, GroupType>;
 
 //using Comp = Comp_d10sa;
+ */
 
 RCPP_MODULE(blofeld_module){
 
@@ -49,8 +51,8 @@ RCPP_MODULE(blofeld_module){
     .method("process", &Comp::process)
     .method("update", &Comp::update)
     .method("insert", &Comp::insert)
-  ;*/
-  
+  ;
+
   class_<Group>("Group")
     .constructor()
     .method("update", &Group::update)
@@ -61,5 +63,8 @@ RCPP_MODULE(blofeld_module){
     .method("set_state", &Group::set_state)
     .property("external_infection", &Group::get_external_infection,  &Group::set_external_infection)
   ;
-  
+  */
+
 }
+
+
