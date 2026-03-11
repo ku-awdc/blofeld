@@ -58,9 +58,9 @@ namespace blofeld
       return gw;
     }
 
-    Rcpp::DataFrame update(int const steps)
+    Rcpp::DataFrame update(int const steps, int const substeps)
     {
-      m_pop->update(steps);
+      m_pop->update(steps, substeps);
       return getState();
     }
     
@@ -95,7 +95,8 @@ namespace blofeld
       std::vector<double> vec;
       for (index i = 0; i < dd; ++i) {
         for (index j = 0; j < dd; ++j) {
-          double const val = beta(i,j);
+          // Transpose the matrix (better for memory layout):
+          double const val = beta(j,i);
           if ( val < 0.0 ) {
             m_bridge.stop("Invalid negative entry in beta matrix");
           }

@@ -107,7 +107,9 @@ namespace blofeld
         // Calculate extbeta:
         double extb = 0.0;
         for (index j=0; j<dd; ++j) {
-          extb += m_infective[j] * m_beta[j*dd+i];
+          // Indexing this way is faster but note the matrix is transposed by
+          // the wrapper
+          extb += m_infective[j] * m_beta[i*dd+j];
         }        
         // Set extbeta and update:
         m_groups[i].set_external_infection(extb);

@@ -11,7 +11,7 @@ Group <- StochasticGroup
 Pop <- StochasticPop
 
 ## Within-group parameters as usual e.g.:
-pars <- list(beta_subclin = 0, beta_clinical = 0, d_time = 1/(24*60))
+pars <- list(beta_subclin = 0, beta_clinical = 0, reversion = 0, d_time = 1/(24*60))
 
 ## Set up a list of e.g. 2000 groups each with 2 susceptible:
 G <- 2000
@@ -29,7 +29,8 @@ pop <- new(Pop, gps)
 pop$getState()
 
 ## Set a beta matrix (must have G rows and columns):
-bm <- 0.0001 * (1-diag(G))
+bm <- 0.01 * (1-diag(G))
+bm[,c(2,3)] <- 0
 pop$setBetaMatrix(bm)
 
 ## Now you can manipulate the groups via the list e.g.:
@@ -38,7 +39,10 @@ gps[[1]]$set_state(list(I = 1, S = 1), distribute=TRUE)
 pop$getState()
 
 ## To run the population for e.g. 1 day (assuming d_time is 1 min):
-pop$update(24*60)
+system.time(as.list(1) |> lapply(\(x) pop$update(24*60/15, 15)))
+pop$getState()
+system.time(as.list(1:24) |> lapply(\(x) pop$update(60/15, 15)))
+pop$getState()
 
 ## If you want details at group level at any point:
 lapply(gps, \(x) x$get_state()) |> bind_rows() |> rowid_to_column("Group")
@@ -65,7 +69,7 @@ mm <- matrix(0, nrow=length(tts), ncol=length(tts))
 mm <- diag(length(tts))
 mm[1,] <- 0.1
 mg$setBetaMatrix(mm)
-mg$update(24*60)
+mg$update(24*60, 1)
 lapply(tts, \(x) x$get_state()) |> bind_rows()
 
 tts <- lapply(seq_len(2000), \(x){
@@ -78,7 +82,7 @@ mg <- new(MPop, tts)
 mg$getState()
 mg$setBetaMatrix(matrix(0.01, nrow=length(tts), ncol=length(tts)))
 
-system.time(mg$update(24*60))
+system.time(mg$update(24*60, 1))
 
 mg$getState()
 lapply(tts, \(x) x$get_state()) |> bind_rows()
