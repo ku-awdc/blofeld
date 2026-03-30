@@ -9,13 +9,84 @@ namespace blofeld
 {
 
   /*
-  CompartmentWrapper is a simpler owner i.e. Compartments are 
+  CompartmentWrapper is a simpler owner i.e. Compartments are
   not transferrable to/between groups
   */
-  
+
   template <class CompType>
   class CompartmentWrapper
   {
+  private:
+    CompType m_compartment;
+
+    // TODO: this needs to be a single RcppBridge provided by blofeld
+    using Bridge = CompType::Bridge;
+    Bridge m_bridge;
+
+    using ValueType = CompType::Value;
+    static constexpr ValueType s_zero = static_cast<ValueType>(0);
+
+    using RcppType = std::conditional_t<
+      std::is_same<ValueType, double>::value,
+      Rcpp::NumericVector,
+      std::conditional_t<
+        std::is_same<ValueType, int>::value,
+        Rcpp::IntegerVector,
+        void
+      >
+    >;
+    static_assert(!std::is_same<ValueType, void>::value, "Unrecognised ValueType");
+
+
+  public:
+    explicit CompartmentWrapper() :
+      m_compartment(m_bridge)
+    {
+
+    }
+
+    /* // Can't do this as the constructor needs defined types in the Rcpp module
+    explicit CompartmentWrapper(RcppValue const& value) :
+      m_compartment(m_bridge)
+    {
+      if (value.size()!=1) {
+        m_bridge.stop("Invalid size of value (must be 1, was {})", value.size());
+      }
+      double const vv = value[0];
+      m_compartment.distribute(vv);
+    }
+    */
+
+    auto distribute(ValueType const value)
+      -> void
+    {
+      if (value < s_zero) {
+        m_bridge.stop("Invalid negative value");
+      }
+      // TODO: checks for finite value
+
+      m_compartment.distribute(value);
+    }
+
+    [[nodiscard]] auto getValues() const noexcept
+      -> RcppType
+    {
+      auto cc = m_compartment.getValues();
+      RcppType rr(cc.size());
+      for (index i=0; i<ssize(cc); ++i)
+      {
+        rr[i] = cc[i];
+      }
+      return rr;
+    }
+
+    auto applyChanges()
+      -> void
+    {
+      m_compartment.applyChanges();
+    }
+
+  /*
   private:
     using Bridge = decltype(s_cts)::Bridge;
     Bridge m_bridge;
@@ -29,75 +100,75 @@ namespace blofeld
     explicit CompartmentWrapper()
       : m_comp { m_bridge }
     {
-      
+
     }
-    
+
     auto process(double const carry, Rcpp::NumericVector take)
       -> Rcpp::List
     {
-      
+
       std::array<double, 1> takearr { take[0] };
-      
+
       auto const all = m_comp.process_rate(carry, takearr);
-      
+
       using namespace Rcpp;
       List rv = List::create(
         _["Carry"] = all.carry,
         _["Take"] = all.take
       );
-      
+
       return rv;
     }
-    
+
     void update()
     {
-      m_comp.apply_changes();      
+      m_comp.apply_changes();
     }
-    
+
     auto get() const
       -> Rcpp::List
     {
       using Tval = double;
-      
+
       Tval const sum = m_comp.get_sum();
       auto const boxes = m_comp.get_values();
-      
+
       using namespace Rcpp;
       List rv = List::create(
         _["Sum"] = sum,
         _["Values"] = boxes
       );
-      
+
       return rv;
     }
-    
+
     auto get_values() const
     {
       Rcpp::NumericVector boxes = Rcpp::wrap(m_comp.get_values());
       return boxes;
     }
-    
+
     void set_values(Rcpp::NumericVector values)
     {
-      
+
     }
 
     auto get_sum() const
     {
       return m_comp.get_sum();
     }
-    
+
     void set_sum(double const sum)
     {
       m_comp.set_sum(sum);
     }
-    
+
     void insert(double const value)
     {
       m_comp.insert_value_start(value);
     }
-    
-    /*
+
+    / *
     template <typename Tbridge>
     explicit GroupWrapper(Bridge& bridge, Tbridge& gbridge) :
       m_bridge(bridge)
@@ -105,9 +176,9 @@ namespace blofeld
       // This doesn't have to be the same Bridge as used for the wrapper:
       m_group = std::make_unique<Tgroup>(gbridge);
     }
-    */
+    * /
 
-    /*
+    / *
     auto update(int const n_steps) ->
       DataFrame
     {
@@ -116,12 +187,12 @@ namespace blofeld
       DataFrame rv = get_state();
       return rv;
     }
-    
+
     void set_external_infection(double const extinf)
     {
       m_group -> set_external_infection(extinf);
     }
-    
+
     [[nodiscard]] auto get_external_infection() const noexcept
       -> double
     {
@@ -163,7 +234,7 @@ namespace blofeld
       SEIDRVMZpars crpars = m_group -> get_parameters();
 
       using namespace Rcpp;
-      
+
       // List should be named:
       StringVector names = nwpars.names();
       for(int i=0; i<nwpars.size(); ++i)
@@ -209,7 +280,7 @@ namespace blofeld
 
       m_group -> set_parameters(crpars);
     }
-    
+
     [[nodiscard]] auto get_full_state() const
       -> List
     {
@@ -243,7 +314,7 @@ namespace blofeld
         _["Time"] = tm,
         _["S"] = lfun(state.S)
       );
-        
+
       if constexpr (state.E.is_active()) rv.push_back(lfun(state.E), "E");
       if constexpr (state.L.is_active()) rv.push_back(lfun(state.L), "L");
       if constexpr (state.I.is_active()) rv.push_back(lfun(state.I), "I");
@@ -251,7 +322,7 @@ namespace blofeld
       if constexpr (state.R.is_active()) rv.push_back(lfun(state.R), "R");
       if constexpr (state.V.is_active()) rv.push_back(lfun(state.V), "V");
       if constexpr (state.M.is_active()) rv.push_back(lfun(state.M), "M");
-      
+
       return rv;
     }
 
@@ -288,7 +359,7 @@ namespace blofeld
         _["Time"] = tm,
         _["S"] = lfun(state.S)
       );
-        
+
       if constexpr (state.E.is_active()) rv.push_back(lfun(state.E), "E");
       if constexpr (state.L.is_active()) rv.push_back(lfun(state.L), "L");
       if constexpr (state.I.is_active()) rv.push_back(lfun(state.I), "I");
@@ -303,7 +374,7 @@ namespace blofeld
     void set_state(List state, bool const distribute)
     {
       using namespace Rcpp;
-      
+
       // List should be named:
       StringVector names = state.names();
       for(int i=0; i<state.size(); ++i)
@@ -332,7 +403,7 @@ namespace blofeld
       }
 
     }
-    
+
     */
 
   };

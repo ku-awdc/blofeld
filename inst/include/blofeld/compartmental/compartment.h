@@ -35,13 +35,15 @@ namespace blofeld
     
   } // namespace internal
 
+
   // Note: methods are marked constexpr but using that requires a constexpr bridge!
   template <auto s_cts, ModelType s_mtype, CompartmentInfo s_cinfo>
   class Compartment
   {
-  friend class CompartmentWrapper;
+  //friend class CompartmentWrapper;
+  public:
+    using Bridge = decltype(s_cts)::Bridge;
     
-  private:
     using Value = std::conditional_t<
       s_mtype == ModelType::Deterministic,
       double,
@@ -52,6 +54,8 @@ namespace blofeld
       >
     >;
     static_assert(!std::is_same<Value, void>::value, "Unrecognised ModelType");
+    
+  private:
 
     using ReturnContainer = std::conditional_t<
       Resizeable<internal::Container<Value, s_cinfo.container_type, s_cinfo.n>>,
@@ -62,7 +66,6 @@ namespace blofeld
     internal::Container<Value, s_cinfo.container_type, s_cinfo.n> m_working;
     internal::Container<Value, s_cinfo.container_type, s_cinfo.n> m_current;
 
-    using Bridge = decltype(s_cts)::Bridge;
     Bridge& m_bridge;
     
     // Used for debug only:
@@ -302,6 +305,11 @@ namespace blofeld
       if constexpr (s_cts.debug) {
         m_checking.value.changes += total;
       }
+      
+      // TODO: compiler error:
+      // auto const _ = takeCarryProps(std::array<double,0>{}, std::array<double,1>{});
+      auto const _ = carryRate(0.0);
+      applyChanges();
       
       validate();
     }

@@ -1,0 +1,68 @@
+---
+title: "The FlexiGroup class"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{flexigroup}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+library("ggflowchart")
+library("tibble")
+library("dplyr")
+```
+
+# Overview
+
+
+```{r}
+tribble(
+  ~node, ~name, ~type,
+  "S", "Susceptible", "not infected; infectable",
+  "Sv", "Vaccinated", "not infected; infectable",
+  "E", "Exposed", "infected; not infectious; not diseased",
+  "Ev", "Exposed & Vaccinated", "infected; not infectious; not diseased",
+  "L", "Latent", "infected; infectious; not diseased",
+  "Lv", "Latent & Vaccinated", "infected; infectious; not diseased",
+  "I", "Infectious", "infected; infectious; diseased",
+  "Iv", "Infectious & Vaccinated", "infected; infectious; diseased",
+  "N", "Nonshedding", "infected; not infectious; diseased",
+  "Nv", "Nonshedding & Vaccinated", "infected; not infectious; diseased",
+  "R", "Recovered", "not infected; not infectable; not diseased",
+  "Rv", "Recovered & Vaccinated", "not infected; not infectable; not diseased",
+  "M", "Mortality", "dead",
+  "D", "Death", "dead",
+) ->
+  nodes
+
+tribble(
+  ~from, ~to,
+  "S", "E",
+  "E", "L",
+  "L", "I",
+  "I", "N",
+  "N", "R",
+  "R", "S",
+  "Sv", "Ev",
+  "Ev", "Lv",
+  "Lv", "Iv",
+  "Iv", "Nv",
+  "Nv", "Rv",
+  "Rv", "Sv",
+  "Sv", "S",
+  "Ev", "E",
+  "Lv", "L",
+  "Iv", "I",
+  "Nv", "N",
+  "Rv", "R",
+) ->
+  edges
+
+ggflowchart(edges, nodes)
+```
+
