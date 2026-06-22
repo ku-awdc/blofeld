@@ -140,7 +140,7 @@ namespace blofeld
     }
 
     constexpr auto validate()
-      -> void
+      -> void 
     {
       if constexpr (s_cts.debug) {
         if (m_current.size() != m_working.size()) m_bridge.stop("Logic error: container sizes unequal within compartment");
@@ -154,10 +154,13 @@ namespace blofeld
         
         Value const current = std::accumulate(m_current.begin(), m_current.end(), zero());
         Value const working = std::accumulate(m_working.begin(), m_working.end(), zero());
-        if (!identical(working, current + m_checking.value.changes, s_cts.tol)) {
+
+        if (!identical(working, current + m_checking.value.changes, s_cts.tol)) {          
+          static_assert(std::is_floating_point_v<Value>);
           m_bridge.stop("Unequal sum(working)={} and sum(current)={} + changes={}", working, current, m_checking.value.changes);
         }
       }                  
+      
     }
 
     Compartment() = delete;
@@ -271,7 +274,7 @@ namespace blofeld
       }
       
       validate();
-
+      
       if constexpr (s_mtype==ModelType::Deterministic) {
         for(auto& val : m_working){
           val += total / ssize(m_working);
@@ -306,11 +309,11 @@ namespace blofeld
         m_checking.value.changes += total;
       }
       
-      // TODO: compiler error:
-      // auto const _ = takeCarryProps(std::array<double,0>{}, std::array<double,1>{});
-      auto const _ = carryRate(0.0);
-      applyChanges();
+      // Do nothing except to trigger that carryProp has been called:
+      auto const _ = takeCarryProps(std::array<double,0>{}, std::array<double,0>{});
       
+      applyChanges();
+
       validate();
     }
     
@@ -369,17 +372,18 @@ namespace blofeld
     constexpr auto applyChanges() noexcept(!s_cts.debug)
       -> void
     {
+      
       validate();
       
       if constexpr (s_cts.debug) {
-        if (m_checking.value.carry_applied) m_bridge.stop("applyChanges called consecutively without carryProp");
+        if (!m_checking.value.carry_applied) m_bridge.stop("applyChanges called consecutively without carryProp");
       }
       
       m_current = m_working;
       if constexpr (s_cts.debug) {
         m_checking.value.changes = zero();
         m_checking.value.take_applied = true;
-        m_checking.value.carry_applied = true;
+        m_checking.value.carry_applied = false;
       }
       
       validate();
@@ -454,7 +458,9 @@ namespace blofeld
     [[nodiscard]] constexpr auto carryRate(double const carry_rate) noexcept(!s_cts.debug)
       -> Value
     {
+      
       auto [_, carry] = takeCarryRates(std::array<double, 0> {}, std::array<double, 1> { carry_rate });
+      
       return carry.front();
     }
   
@@ -781,7 +787,7 @@ namespace blofeld
           );
         
         } else {
-          static_assert(s_nc==0U, "Logic error in takeCarryProps:  s_nc not in {1,0}");
+          static_assert(s_cinfo.carry_type == CarryType::None || s_nc==0U, "Logic error in takeCarryProps:  s_nc not in {1,0}");
         }
         
         // Then finally apply changes to m_working:

@@ -4,18 +4,18 @@
 // TODO: sort out include order
 
 //#include "blofeld/groups/compartment_types.h"
-#include "blofeld/groups/container.h"
+#include "blofeld/compartmental/container.h"
 
 //#include "blofeld/utilities/bridge.h"
 #include "blofeld/utilities/bridge_cpp.h"
 #include "blofeld/utilities/container_formatter.h"
 
-#include "blofeld/groups/compartment.h"
+// #include "blofeld/groups/compartment.h"
 
 // Legacy for supporting Sandra:
 // #include "blofeld/groups/SEIDRVMZgroup.h"
 
-#include "blofeld/populations/matrix_population.h"
+// #include "blofeld/populations/matrix_population.h"
 
 
 int main ()

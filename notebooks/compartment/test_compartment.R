@@ -4,6 +4,20 @@ library("Rcpp")
 # install.packages('blofeld', repos=c(CRAN="https://cran.rstudio.com/", "ku-awdc"="https://ku-awdc.github.io/drat/"))
 rm(cw); gc(); sourceCpp("notebooks/compartment/test_compartment.cpp")
 
+
+library("parallel")
+
+
+cl <- makeForkCluster(1)
+clusterApply(cl, 1, \(x){
+  sourceCpp("notebooks/compartment/test_compartment.cpp")
+  cw <- new(CompWrap)
+  cw$distribute(10.0)
+  cw$getValues()
+})
+
+
+
 cw <- CompWrap$new()
 cw$distribute(10)
 cw$applyChanges()

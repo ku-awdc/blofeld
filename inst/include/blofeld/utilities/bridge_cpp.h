@@ -67,7 +67,7 @@ namespace blofeld
     void warning(std::format_string<Args...> const fmt, Args&&... args)
     {
       std::string msg = std::vformat(fmt.get(), std::make_format_args(args...));
-      std::cout << "WARNING: " << msg << "\n";
+      std::cerr << "WARNING: " << msg << "\n";
     }
 
     auto rbinom(int const n, double const p)

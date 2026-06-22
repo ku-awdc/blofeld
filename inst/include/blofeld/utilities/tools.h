@@ -26,15 +26,15 @@ namespace blofeld
     -> bool
   {
     // Prevent implicit casts:
-    if constexpr (!std::is_same<T,U>()) return false;
+    static_assert(std::is_same_v<T,U>);
     
-    if constexpr (std::is_integral<T>() || std::is_enum<T>()) {
+    if constexpr (std::is_integral_v<T> || std::is_enum_v<T>) {
       return a == b;
-    } else if constexpr (std::is_floating_point<T>()) {
+    } else if constexpr (std::is_floating_point_v<T>) {
       return a == 0.0 ? std::abs(b) < tol : std::abs((a-b)/a) < tol; 
     } else {
       static_assert(false, "Unhandled type in identical()");
-    }    
+    }
   }
   
   

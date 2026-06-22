@@ -28,7 +28,7 @@ RCPP_MODULE(comp_test){
     .method("applyChanges", &CompWrap::applyChanges)
     .method("getValues", &CompWrap::getValues)
   ;
-  
+
 }
 
 /*

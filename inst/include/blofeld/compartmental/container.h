@@ -7,6 +7,7 @@
 #include <concepts>
 
 #include "./compartment_types.h"
+#include "../utilities/tools.h"
 
 namespace blofeld
 {
